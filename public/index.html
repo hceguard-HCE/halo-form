@@ -5,33 +5,90 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Registro Halo CE</title>
 
- <script>
-  const isMobile = /iPhone|Android|iPad|Mobile/i.test(navigator.userAgent);
-  if (!isMobile) {
-    document.documentElement.innerHTML = `
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Acceso restringido</title>
-        <style>
-          body {
-            background: #111;
-            color: #fff;
-            font-family: sans-serif;
-            text-align: center;
-            padding: 40px;
-          }
-        </style>
-      </head>
-      <body>
-        <h2>📵 Esta página solo está disponible en dispositivos móviles.</h2>
-        <p>Por favor accede desde tu teléfono.</p>
-      </body>
-    `;
-    throw new Error("Bloqueado en escritorio");
-  }
-</script>
-  
+  <script>
+    const isMobile = /iPhone|Android|iPad|Mobile/i.test(navigator.userAgent);
+    window.addEventListener("DOMContentLoaded", () => {
+      if (!isMobile) {
+        document.body.classList.add("bloqueado");
+      }
+    });
+  </script>
+
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #1b1b1b;
+      color: #fff;
+      margin: 0;
+    }
+
+    #container {
+      background: #2c2c2c;
+      padding: 30px;
+      border-radius: 10px;
+      width: 350px;
+      text-align: center;
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      margin: 8px 0;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+    }
+
+    textarea {
+      resize: none;
+      height: 60px;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: grey;
+    }
+
+    small {
+      font-size: 12px;
+      color: #ccc;
+      display: block;
+      margin-top: 10px;
+    }
+
+    pre {
+      text-align: left;
+      white-space: pre-wrap;
+    }
+
+    #codigoAccess {
+      margin-top: 20px;
+    }
+
+    /* Bloqueo para escritorio */
+    body.bloqueado #container {
+      display: none;
+    }
+
+    body.bloqueado::before {
+      content: "📵 Esta página solo está disponible en dispositivos móviles.\A Por favor accede desde tu teléfono.";
+      white-space: pre-wrap;
+      font-size: 18px;
+      display: block;
+      text-align: center;
+      padding: 40px;
+      font-family: sans-serif;
+      color: #fff;
+    }
+  </style>
 </head>
 <body>
   <div id="container">
@@ -69,6 +126,9 @@
       <p id="msgInfo" style="font-size: 14px;"></p>
     </div>
   </div>
+</body>
+</html>
+
 
   <script>
     const form = document.getElementById("registroForm");
