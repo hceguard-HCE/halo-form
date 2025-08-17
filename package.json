@@ -1,14 +1,16 @@
 {
   "name": "halo-form",
   "version": "1.0.0",
-  "description": "Formulario Halo CE con backend seguro para Discord",
+  "description": "Formulario Halo CE con backend seguro y aprobación desde Discord",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "bot": "node bot.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "discord.js": "^14.11.0"
   }
 }
