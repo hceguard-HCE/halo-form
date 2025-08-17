@@ -2,27 +2,16 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { Client, GatewayIntentBits } from "discord.js";
-import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(process.cwd(), "public")));
-
-// Discord Bot
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
-});
-
-// Archivo persistente
+// Carpeta y archivo para aprobados
 const FILE = path.join(process.cwd(), "disk", "aprobados.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
 
-// Funciones de lectura/escritura
+// Funciones para leer/escribir aprobados
 function getAprobados() {
   try {
     const data = fs.readFileSync(FILE, "utf8");
@@ -36,26 +25,25 @@ function saveAprobados(data) {
   fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
-// Endpoints
+// Middlewares
+app.use(express.json());
+import cors from "cors";
+app.use(cors());
+
+// Endpoint para revisar estado
 app.get("/check/:id", (req, res) => {
   const aprobados = getAprobados();
   const id = req.params.id;
   res.json({ aprobado: !!aprobados[id] });
 });
 
-app.post("/registro", (req, res) => {
-  const data = req.body;
-  if (!data || !data.nick || !data.deviceID) return res.status(400).json({ ok: false });
-  // Aquí puedes guardar registro si quieres
-  res.json({ ok: true });
-});
-
+// Endpoint para notificar conexión
 app.post("/conectar", async (req, res) => {
   const { nick, prefJuego } = req.body;
   try {
     const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
     if (canal) {
-      const pref = prefJuego?.includes("Pro") ? "Pro" : prefJuego || "Casual";
+      const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego;
       canal.send(`**${nick}** (${pref}) se ha conectado.`);
     }
     res.json({ ok: true });
@@ -65,6 +53,7 @@ app.post("/conectar", async (req, res) => {
   }
 });
 
+// Endpoint para notificar desconexión
 app.post("/desconectar", async (req, res) => {
   const { nick } = req.body;
   try {
@@ -77,28 +66,40 @@ app.post("/desconectar", async (req, res) => {
   }
 });
 
-// Discord aprobaciones
+// Servir frontend
+app.use(express.static(path.join(process.cwd(), "public")));
+
+// Discord Bot
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+});
+
 const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES;
 
+// Bot maneja aprobaciones
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
 
   const [cmd, deviceID] = msg.content.split(" ");
-  if (cmd === "approve" && deviceID) {
-    const aprobados = getAprobados();
+  if (!deviceID) return;
+
+  const aprobados = getAprobados();
+
+  if (cmd === "approve") {
     aprobados[deviceID] = true;
     saveAprobados(aprobados);
     msg.reply(`✅ El ID **${deviceID}** fue aprobado.`);
   }
-  if (cmd === "deny" && deviceID) {
-    const aprobados = getAprobados();
+
+  if (cmd === "deny") {
     delete aprobados[deviceID];
     saveAprobados(aprobados);
     msg.reply(`❌ El ID **${deviceID}** fue eliminado de aprobados.`);
   }
 });
 
+// Login
 client.login(process.env.DISCORD_BOT_TOKEN);
 
-// Start server
+// Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
