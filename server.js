@@ -1,32 +1,39 @@
 const express = require("express");
 const fetch = require("node-fetch");
-const app = express();
-app.use(express.json());
 const path = require("path");
+const app = express();
+
+app.use(express.json());
 
 // Servir archivos estáticos (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname)));
 
-const WEBHOOK_URL = process.env.WEBHOOK_URL; // Tu webhook seguro
+// Tu webhook seguro en Render → Environment Variables
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+
+// Puerto de Render
 const PORT = process.env.PORT || 3000;
 
 // JSON local simulando aprobaciones
-// En producción puedes reemplazarlo por un canal de Discord o base de datos
 const aprobados = {}; // ejemplo: { "device-id-ejemplo": true }
 
+// Endpoint para recibir registro desde frontend
 app.post("/registro", async (req, res) => {
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
 
-  // Enviar al webhook
-  await fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      content: `Nuevo registro:\nNick: ${nick}\nPaís: ${pais}\nServidores: ${servidores}\nPreferencia: ${prefJuego}\nMotivo: ${motivo}\nDeviceID: ${deviceID}`
-    })
-  });
-
-  res.json({ ok: true });
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `Nuevo registro:\nNick: ${nick}\nPaís: ${pais}\nServidores: ${servidores}\nPreferencia: ${prefJuego}\nMotivo: ${motivo}\nDeviceID: ${deviceID}`
+      })
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: "Error enviando webhook" });
+  }
 });
 
 // Endpoint para revisar si un deviceID está aprobado
@@ -35,12 +42,12 @@ app.get("/check/:deviceID", (req, res) => {
   res.json({ aprobado: aprobados[deviceID] || false });
 });
 
-// Endpoint para aprobar manualmente desde un bot o admin (opcional)
+// Endpoint opcional para aprobar manualmente un deviceID
 app.post("/aprobar/:deviceID", (req, res) => {
   const deviceID = req.params.deviceID;
   aprobados[deviceID] = true;
   res.json({ ok: true });
 });
 
+// Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
-
