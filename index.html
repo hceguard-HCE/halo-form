@@ -1,127 +1,175 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Verificación</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to right, #4facfe, #00f2fe);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
-    .container {
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      text-align: center;
-      width: 320px;
-    }
-    h1 {
-      margin-bottom: 20px;
-      color: #333;
-    }
-    input {
-      padding: 10px;
-      width: 90%;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    button {
-      background: #4facfe;
-      border: none;
-      padding: 10px 20px;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:hover {
-      background: #00c6fb;
-    }
-    .resultado {
-      margin-top: 20px;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    .aprobado {
-      color: green;
-    }
-    .rechazado {
-      color: red;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Halo CE</title>
+<style>
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    margin: 0;
+    color: #fff;
+  }
+  #container {
+    background: #2c2c2c;
+    padding: 30px;
+    border-radius: 10px;
+    width: 350px;
+    text-align: center;
+  }
+  input, select, textarea, button {
+    width: 100%;
+    margin: 8px 0;
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    font-size: 14px;
+  }
+  textarea { resize: none; height: 60px; }
+  button { cursor: pointer; background: #4CAF50; color: white; }
+  button:disabled { background: grey; cursor: default; }
+  #estadoDiv { display: none; margin-top: 20px; text-align: left; }
+  #estadoDiv p { margin: 5px 0; white-space: pre-line; }
+  small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>Verificación</h1>
-    <input type="text" id="userId" placeholder="Ingrese su ID">
-    <button onclick="checkAprobado()">Verificar</button>
-    <div id="resultado" class="resultado"></div>
+<div id="container">
+  <h2>Registro Halo CE</h2>
+
+  <form id="registroForm">
+    <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo">
+    <input type="text" id="pais" placeholder="País" required>
+    <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required>
+    <select id="prefJuego" required>
+      <option value="">¿Cómo prefieres jugar Halo CE?</option>
+      <option value="Pro / competitivo">Pro / competitivo</option>
+      <option value="Casual / recreativo">Casual / recreativo</option>
+    </select>
+    <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
+    <button type="submit">Crear</button>
+    <small>12–48 horas para revisar, salvo recomendación de un administrador.</small>
+  </form>
+
+  <div id="estadoDiv">
+    <h3>Tu Información</h3>
+    <p id="infoUsuario"></p>
+    <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
+    <button id="btnConectar">Conectar</button>
+    <button id="btnDesconectar">Desconectar</button>
+    <p id="msgConexion" style="color: #4CAF50; font-weight: bold;"></p>
   </div>
+</div>
 
-  <script>
+<script>
+const form = document.getElementById("registroForm");
+const estadoDiv = document.getElementById("estadoDiv");
+const infoUsuario = document.getElementById("infoUsuario");
+const estadoUsuario = document.getElementById("estadoUsuario");
+const btnConectar = document.getElementById("btnConectar");
+const btnDesconectar = document.getElementById("btnDesconectar");
+const msgConexion = document.getElementById("msgConexion");
 
-  // Botón Conectar
-  btnConectar.addEventListener("click", async () => {
-    const data = JSON.parse(localStorage.getItem("usuarioData"));
-    try {
-      const res = await fetch("/conectar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nick: data.nick })
-      });
-      const json = await res.json();
-      if (json.ok) {
-        alert(`Conectado! Se notificó a Discord.`);
-      } else {
-        alert("Error al notificar la conexión.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error de conexión con el servidor.");
+// Device ID persistente
+function getDeviceID() {
+  if(!localStorage.getItem("deviceID")) {
+    localStorage.setItem("deviceID", crypto.randomUUID());
+  }
+  return localStorage.getItem("deviceID");
+}
+const deviceID = getDeviceID();
+
+// Mostrar información si ya hay registro
+if(localStorage.getItem("usuarioData")) {
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
+  infoUsuario.textContent = 
+    `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+  estadoUsuario.textContent = "Activo";
+}
+
+// Enviar formulario al backend
+form.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const data = {
+    nick: document.getElementById("nick").value,
+    pais: document.getElementById("pais").value,
+    servidores: document.getElementById("servidores").value,
+    prefJuego: document.getElementById("prefJuego").value,
+    motivo: document.getElementById("motivo").value,
+    deviceID
+  };
+
+  try {
+    const res = await fetch("/registro", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if(json.ok){
+      localStorage.setItem("usuarioData", JSON.stringify(data));
+      form.style.display = "none";
+      estadoDiv.style.display = "block";
+      infoUsuario.textContent = 
+        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+      estadoUsuario.textContent = "Pendiente";
+    } else {
+      msgConexion.textContent = "Error al enviar el registro.";
     }
-  });
+  } catch(err){
+    console.error(err);
+    msgConexion.textContent = "Error de conexión con el servidor.";
+  }
+});
 
-
-    
-    async function checkAprobado() {
-      const userId = document.getElementById("userId").value.trim();
-      const resultadoDiv = document.getElementById("resultado");
-
-      if (!userId) {
-        resultadoDiv.textContent = "Por favor ingrese un ID.";
-        resultadoDiv.className = "resultado rechazado";
-        return;
-      }
-
-      try {
-        const response = await fetch(`/check/${userId}`);
-        if (!response.ok) {
-          resultadoDiv.textContent = "Error consultando la API.";
-          resultadoDiv.className = "resultado rechazado";
-          return;
-        }
-        const data = await response.json();
-
-        if (data.aprobado === true) {
-          resultadoDiv.textContent = "✅ ID aprobado";
-          resultadoDiv.className = "resultado aprobado";
-        } else {
-          resultadoDiv.textContent = "❌ ID no aprobado";
-          resultadoDiv.className = "resultado rechazado";
-        }
-      } catch (error) {
-        resultadoDiv.textContent = "Error en la conexión.";
-        resultadoDiv.className = "resultado rechazado";
-      }
+// Conectar
+btnConectar.addEventListener("click", async ()=>{
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  try {
+    const res = await fetch("/conectar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if(json.ok){
+      estadoUsuario.textContent = "Activo";
+      msgConexion.textContent = "✅ Ya puedes ingresar a cualquier servidor de Halo CE.";
+      btnConectar.style.display = "none";
     }
-  </script>
+  } catch(err){
+    console.error(err);
+    msgConexion.textContent = "Error notificando conexión.";
+  }
+});
+
+// Desconectar
+btnDesconectar.addEventListener("click", async ()=>{
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  try {
+    const res = await fetch("/desconectar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if(json.ok){
+      estadoUsuario.textContent = "Pendiente";
+      msgConexion.textContent = "⚠️ Te has desconectado.";
+      btnConectar.style.display = "inline-block";
+    }
+  } catch(err){
+    console.error(err);
+    msgConexion.textContent = "Error notificando desconexión.";
+  }
+});
+</script>
 </body>
 </html>
