@@ -18,9 +18,11 @@
   <p id="estado"></p>
 
   <script>
+    const nickInput = document.getElementById("nick");
+
     async function registrar() {
       const codigo = document.getElementById("codigo").value;
-      const nick = document.getElementById("nick").value;
+      const nick = nickInput.value;
 
       const res = await fetch("/registro", {
         method: "POST",
@@ -33,13 +35,29 @@
     }
 
     async function conectar() {
-      const res = await fetch("/discord/connect", { method: "POST" });
+      const nick = nickInput.value;
+      if (!nick) return alert("Ingresa tu nick primero");
+
+      const res = await fetch("/discord/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nick })
+      });
+
       const data = await res.json();
       document.getElementById("estado").innerText = data.message;
     }
 
     async function desconectar() {
-      const res = await fetch("/discord/disconnect", { method: "POST" });
+      const nick = nickInput.value;
+      if (!nick) return alert("Ingresa tu nick primero");
+
+      const res = await fetch("/discord/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nick })
+      });
+
       const data = await res.json();
       document.getElementById("estado").innerText = data.message;
     }
