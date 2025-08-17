@@ -1,42 +1,4 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Registro Halo CE</title>
-<style>
-body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; }
-#formulario, #estadoDiv { display:flex; flex-direction:column; width:300px; }
-#estadoDiv { display:none; margin-top:20px; }
-button { margin-top:10px; }
-</style>
-</head>
-<body>
-
-<div id="formulario">
-  <input id="nick" placeholder="Nick Halo CE" />
-  <input id="pais" placeholder="País" />
-  <input id="servidores" placeholder="¿En qué servidores juegas?" />
-  <input id="prefJuego" placeholder="Preferencia (Pro / Casual)" />
-  <textarea id="motivo" placeholder="Motivo para unirse"></textarea>
-  <button id="crearBtn">Crear</button>
-  <p>(12–48 horas para ser aprobado salvo recomendación)</p>
-</div>
-
-<div id="estadoDiv">
-  <span id="estadoUsuario">Estado: Pendiente</span>
-  <pre id="infoUsuario" style="display:none"></pre>
-  <button id="btnConectar" disabled style="display:none">Conectar</button>
-</div>
-
 <script>
-const form = document.getElementById("formulario");
-const estadoDiv = document.getElementById("estadoDiv");
-const estadoUsuario = document.getElementById("estadoUsuario");
-const infoUsuario = document.getElementById("infoUsuario");
-const btnConectar = document.getElementById("btnConectar");
-
-function generarDeviceID(){ return 'xxxx-xxxx-xxxx'.replace(/[x]/g, ()=>Math.floor(Math.random()*10)); }
-
 async function enviarRegistro(){
   const deviceID = localStorage.getItem("deviceID") || generarDeviceID();
   localStorage.setItem("deviceID", deviceID);
@@ -51,16 +13,13 @@ async function enviarRegistro(){
   };
   localStorage.setItem("usuarioData", JSON.stringify(data));
 
-  const WEBHOOK_URL = "TU_WEBHOOK_URL";
-  await fetch(WEBHOOK_URL, {
+  // Enviar al bot, que a su vez lo envía al webhook
+  await fetch("https://TU_BOT_API/registro", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      content: `Nuevo registro:\nNick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}\nDeviceID: ${deviceID}`
-    })
+    body: JSON.stringify(data)
   });
 
-  // Mostrar solo Estado Pendiente
   form.style.display = "none";
   estadoDiv.style.display = "flex";
   estadoUsuario.textContent = "Estado: Pendiente";
@@ -68,34 +27,4 @@ async function enviarRegistro(){
   btnConectar.style.display = "none";
   btnConectar.disabled = true;
 }
-
-document.getElementById("crearBtn").onclick = enviarRegistro;
-
-// Revisar si ya fue aprobado
-async function checkEstado(){
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  if(!data) return;
-
-  const res = await fetch(`https://TU_BOT_API/check/${data.deviceID}`);
-  const json = await res.json();
-
-  if(json.aprobado){
-    estadoUsuario.textContent = "Estado: Activo";
-    infoUsuario.style.display = "block";
-    infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-    btnConectar.style.display = "block";
-    btnConectar.disabled = false;
-  } else {
-    estadoUsuario.textContent = "Estado: Pendiente";
-    infoUsuario.style.display = "none";
-    btnConectar.style.display = "none";
-    btnConectar.disabled = true;
-  }
-}
-
-// Revisar cada 10 segundos
-setInterval(checkEstado, 10000);
-checkEstado();
 </script>
-</body>
-</html>
