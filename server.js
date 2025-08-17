@@ -72,6 +72,7 @@ client.on("messageCreate", (msg) => {
   }
 });
 
-client.login("TOKEN_DEL_BOT");
+client.login(process.env.DISCORD_BOT_TOKEN);
 
 app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
+
