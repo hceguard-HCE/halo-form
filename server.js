@@ -57,6 +57,32 @@ app.post("/registro", async (req, res) => {
   registros[deviceID] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
   saveRegistros(registros);
 
+app.post("/registro", async (req, res) => {
+  const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
+
+  try {
+    // Canal de Discord donde se envían los nuevos registros
+    const canal = await client.channels.fetch(process.env.CANAL_REGISTROS);
+    if (canal) {
+      canal.send(`📋 Nuevo registro
+Nick: ${nick}
+País: ${pais}
+Servidores: ${servidores}
+Preferencia: ${prefJuego}
+Motivo: ${motivo}
+DeviceID: ${deviceID}`);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false });
+  }
+});
+
+
+
+  
   // Enviar al canal de registros
   try {
     const canal = await client.channels.fetch(CANAL_REGISTROS);
@@ -138,3 +164,4 @@ app.get("/", (req, res) => {
 
 // Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
