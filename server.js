@@ -3,9 +3,25 @@ import fs from "fs";
 import path from "path";
 import { Client, GatewayIntentBits } from "discord.js";
 import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config(); // Cargar variables de entorno
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Verificar variables de entorno
+const {
+  DISCORD_BOT_TOKEN,
+  CANAL_REGISTROS,
+  CANAL_APROBACIONES,
+  CANAL_CONEXIONES
+} = process.env;
+
+if (!DISCORD_BOT_TOKEN || !CANAL_REGISTROS || !CANAL_APROBACIONES || !CANAL_CONEXIONES) {
+  console.error("❌ Faltan variables de entorno necesarias.");
+  process.exit(1);
+}
 
 // Middlewares
 app.use(express.json());
@@ -21,16 +37,11 @@ const client = new Client({
   ],
 });
 
-const CANAL_REGISTROS = process.env.CANAL_REGISTROS;       // Canal donde llegan los registros
-const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES; // Canal para approve/deny
-const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;     // Canal de conexión/desconexión
-
-// Archivo para persistencia opcional
+// Archivo para persistencia
 const FILE = path.join(process.cwd(), "disk", "registros.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
 
-// Cargar y guardar registros
 function loadRegistros() {
   try {
     const data = fs.readFileSync(FILE, "utf8");
@@ -46,26 +57,25 @@ function saveRegistros(data) {
 let registros = loadRegistros();
 let botReady = false;
 
-// Esperar que el bot esté listo
 client.on("ready", () => {
-  console.log(`Bot listo como ${client.user.tag}`);
+  console.log(`🤖 Bot listo como ${client.user.tag}`);
   botReady = true;
 });
 
-// Endpoint para recibir registros del frontend
+// Registro desde frontend
 app.post("/registro", async (req, res) => {
   if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
 
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
-  if (!deviceID) return res.status(400).json({ ok: false, error: "No hay deviceID" });
+  if (!deviceID) return res.status(400).json({ ok: false, error: "Falta deviceID" });
+  if (!/^[a-zA-Z0-9_]+$/.test(nick)) return res.status(400).json({ ok: false, error: "Nick inválido" });
 
-  // Guardar registro inicial
   registros[deviceID] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
   saveRegistros(registros);
 
   try {
     const canal = await client.channels.fetch(CANAL_REGISTROS);
-    if (!canal) return res.status(500).json({ ok: false, error: "Canal no encontrado" });
+    if (!canal) return res.status(500).json({ ok: false, error: "Canal de registros no encontrado" });
 
     await canal.send(`📋 Nuevo registro
 Nick: ${nick}
@@ -77,54 +87,56 @@ DeviceID: ${deviceID}`);
 
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("Error al enviar registro:", err);
     res.status(500).json({ ok: false });
   }
 });
 
-// Endpoint para revisar si está aprobado
+// Verificar aprobación
 app.get("/check/:id", (req, res) => {
   const id = req.params.id;
   const aprobado = registros[id]?.aprobado || false;
   res.json({ aprobado });
 });
 
-// Endpoint para notificar conexión
+// Conexión
 app.post("/conectar", async (req, res) => {
   if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
   const { nick, prefJuego } = req.body;
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    if (canal) {
-      const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego;
-      canal.send(`**${nick}** (${pref}) se ha conectado.`);
-    }
+    if (!canal) return res.status(500).json({ ok: false, error: "Canal de conexiones no encontrado" });
+
+    const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego;
+    await canal.send(`**${nick}** (${pref}) se ha conectado.`);
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("Error al conectar:", err);
     res.status(500).json({ ok: false });
   }
 });
 
-// Endpoint para notificar desconexión
+// Desconexión
 app.post("/desconectar", async (req, res) => {
   if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
   const { nick } = req.body;
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    if (canal) canal.send(`**${nick}** se ha desconectado.`);
+    if (!canal) return res.status(500).json({ ok: false, error: "Canal de conexiones no encontrado" });
+
+    await canal.send(`**${nick}** se ha desconectado.`);
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("Error al desconectar:", err);
     res.status(500).json({ ok: false });
   }
 });
 
-// Bot escucha el canal de aprobaciones
+// Aprobaciones desde Discord
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
 
-  const [cmd, deviceID] = msg.content.split(" ");
+  const [cmd, deviceID] = msg.content.trim().split(" ");
   if (!deviceID || !registros[deviceID]) return;
 
   if (cmd === "approve") {
@@ -140,8 +152,8 @@ client.on("messageCreate", (msg) => {
   }
 });
 
-// Login bot
-client.login(process.env.DISCORD_BOT_TOKEN);
+// Login del bot
+client.login(DISCORD_BOT_TOKEN);
 
 // Servir index
 app.get("/", (req, res) => {
@@ -149,4 +161,4 @@ app.get("/", (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`));
