@@ -1,45 +1,50 @@
 import express from "express";
-import fs from "fs";
 import path from "path";
 import cors from "cors";
 import { Client, GatewayIntentBits } from "discord.js";
 
-// --- Configuración básica ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
 app.use(express.static(path.join(process.cwd(), "public")));
 
-// --- Archivo para aprobados ---
-const FILE = path.join(process.cwd(), "disk", "aprobados.json");
-if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
-if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
+// Discord Bot
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
 
-function getAprobados() {
+// Verifica si el usuario tiene el rol de aprobado
+async function isAprobado(userId, guildId) {
   try {
-    const data = fs.readFileSync(FILE, "utf8");
-    return data ? JSON.parse(data) : {};
+    const guild = await client.guilds.fetch(guildId);
+    const member = await guild.members.fetch(userId);
+    return member.roles.cache.has(process.env.ROL_APROBADO);
   } catch {
-    return {};
+    return false;
   }
 }
 
-function saveAprobados(data) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
-
-// --- Endpoints ---
-app.get("/check/:id", (req, res) => {
-  const aprobados = getAprobados();
-  const id = req.params.id;
-  res.json({ aprobado: !!aprobados[id] });
+// Endpoint para verificar si el usuario está aprobado
+app.get("/check/:id", async (req, res) => {
+  const userId = req.params.id;
+  const aprobado = await isAprobado(userId, process.env.GUILD_ID);
+  res.json({ aprobado });
 });
 
+// Endpoint para notificar conexión
 app.post("/conectar", async (req, res) => {
-  const { nick, prefJuego } = req.body;
+  const { userId, nick, prefJuego } = req.body;
+  if (!(await isAprobado(userId, process.env.GUILD_ID))) {
+    return res.status(403).json({ ok: false, message: "Usuario no aprobado" });
+  }
+
   try {
     const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
     if (canal) {
@@ -53,6 +58,7 @@ app.post("/conectar", async (req, res) => {
   }
 });
 
+// Endpoint para notificar desconexión
 app.post("/desconectar", async (req, res) => {
   const { nick } = req.body;
   try {
@@ -65,41 +71,10 @@ app.post("/desconectar", async (req, res) => {
   }
 });
 
-// Servir frontend
+client.login(process.env.DISCORD_BOT_TOKEN);
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "index.html"));
 });
 
-// --- Discord Bot ---
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
-});
-
-const CANAL_APROBACIONES = process.env.CANAL_APROBACIONES;
-
-client.on("messageCreate", (msg) => {
-  if (msg.channel.id !== CANAL_APROBACIONES) return;
-
-  const [cmd, deviceID] = msg.content.split(" ");
-  if (!deviceID) return;
-
-  const aprobados = getAprobados();
-
-  if (cmd === "approve") {
-    aprobados[deviceID] = true;
-    saveAprobados(aprobados);
-    msg.reply(`✅ El ID **${deviceID}** fue aprobado.`);
-  }
-
-  if (cmd === "deny") {
-    delete aprobados[deviceID];
-    saveAprobados(aprobados);
-    msg.reply(`❌ El ID **${deviceID}** fue eliminado de aprobados.`);
-  }
-});
-
-// Login del bot
-client.login(process.env.DISCORD_BOT_TOKEN);
-
-// Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
