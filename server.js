@@ -34,6 +34,21 @@ app.get("/check/:id", (req, res) => {
   res.json({ aprobado: !!aprobados[id] });
 });
 
+// Endpoint para notificar conexión
+app.post("/conectar", express.json(), async (req, res) => {
+  const { nick } = req.body;
+  try {
+    const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
+    if (canal) {
+      canal.send(`🟢 **${nick}** se ha conectado.`);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false });
+  }
+});
+
 // Servir front
 app.use(express.static(path.join(process.cwd(), "public")));
 
@@ -43,7 +58,7 @@ const client = new Client({
 });
 
 // ID del canal de aprobaciones
-const CANAL_APROBACIONES = "1406465463591899267";
+const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES;
 
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
@@ -70,3 +85,4 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Start server
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
