@@ -3,11 +3,11 @@ import fs from "fs";
 import path from "path";
 import { Client, GatewayIntentBits } from "discord.js";
 import cors from "cors";
+import crypto from "crypto";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Variables de entorno desde Render
 const {
   DISCORD_BOT_TOKEN,
   CANAL_REGISTROS,
@@ -62,10 +62,8 @@ app.post("/registro", async (req, res) => {
   const { nick, pais, servidores, prefJuego, motivo } = req.body;
   if (!nick || !/^[a-zA-Z0-9_]+$/.test(nick)) return res.status(400).json({ ok: false, error: "Nick inválido" });
 
-  const nickExistente = Object.values(registros).some(r => r.nick === nick);
-  if (nickExistente) return res.status(400).json({ ok: false, error: "Nick ya registrado" });
-
-  registros[nick] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
+  const guid = crypto.randomUUID();
+  registros[guid] = { guid, nick, pais, servidores, prefJuego, motivo, aprobado: false };
   saveRegistros(registros);
 
   try {
@@ -75,27 +73,30 @@ Nick: ${nick}
 País: ${pais}
 Servidores: ${servidores}
 Preferencia: ${prefJuego}
-Motivo: ${motivo}`);
-    res.json({ ok: true });
+Motivo: ${motivo}
+GUID: ${guid}`);
+    res.json({ ok: true, guid });
   } catch (err) {
     console.error("Error al enviar registro:", err);
     res.status(500).json({ ok: false });
   }
 });
 
-app.get("/check/:nick", (req, res) => {
-  const nick = req.params.nick;
-  const registro = registros[nick];
-  res.json({ aprobado: registro?.aprobado || false });
+app.get("/check/:guid", (req, res) => {
+  const guid = req.params.guid;
+  const registro = registros[guid];
+  res.json({ aprobado: registro?.aprobado || false, nick: registro?.nick || null });
 });
 
 app.post("/conectar", async (req, res) => {
   if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
-  const { nick, prefJuego } = req.body;
+  const { guid } = req.body;
+  const registro = registros[guid];
+  if (!registro || !registro.aprobado) return res.status(403).json({ ok: false, error: "No aprobado" });
+
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego;
-    await canal.send(`**${nick}** (${pref}) se ha conectado.`);
+    await canal.send(`✅ ${registro.nick} se ha conectado.`);
     res.json({ ok: true });
   } catch (err) {
     console.error("Error al conectar:", err);
@@ -105,10 +106,13 @@ app.post("/conectar", async (req, res) => {
 
 app.post("/desconectar", async (req, res) => {
   if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
-  const { nick } = req.body;
+  const { guid } = req.body;
+  const registro = registros[guid];
+  if (!registro) return res.status(404).json({ ok: false });
+
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    await canal.send(`**${nick}** se ha desconectado.`);
+    await canal.send(`🔒 ${registro.nick} se ha desconectado.`);
     res.json({ ok: true });
   } catch (err) {
     console.error("Error al desconectar:", err);
@@ -119,19 +123,20 @@ app.post("/desconectar", async (req, res) => {
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
 
-  const [cmd, nick] = msg.content.trim().split(" ");
-  if (!nick || !registros[nick]) return;
+  const [cmd, guid] = msg.content.trim().split(" ");
+  const registro = registros[guid];
+  if (!registro) return;
 
   if (cmd === "approve") {
-    registros[nick].aprobado = true;
+    registro.aprobado = true;
     saveRegistros(registros);
-    msg.reply(`✅ El registro de ${nick} fue aprobado.`);
+    msg.reply(`✅ El registro de ${registro.nick} fue aprobado.`);
   }
 
   if (cmd === "deny") {
-    registros[nick].aprobado = false;
+    registro.aprobado = false;
     saveRegistros(registros);
-    msg.reply(`❌ El registro de ${nick} fue rechazado.`);
+    msg.reply(`❌ El registro de ${registro.nick} fue rechazado.`);
   }
 });
 
