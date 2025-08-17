@@ -1,12 +1,14 @@
-const express = require("express");
-const fetch = require("node-fetch");
-const path = require("path");
+import express from "express";
+import fetch from "node-fetch";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-
 app.use(express.json());
-
-// Servir archivos estáticos (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(__dirname));
 
 // Tu webhook seguro en Render → Environment Variables
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
@@ -51,3 +53,4 @@ app.post("/aprobar/:deviceID", (req, res) => {
 
 // Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+
