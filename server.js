@@ -75,9 +75,34 @@ app.post("/registro", async (req, res) => {
   res.json({ message: "✅ Registro exitoso" });
 });
 
-// --- CONECTAR / DESCONECTAR SIMULADO ---
-app.post("/discord/connect", (req, res) => res.json({ message: "🔌 Conectado al servidor" }));
-app.post("/discord/disconnect", (req, res) => res.json({ message: "🔌 Desconectado del servidor" }));
+// --- CONECTAR / DESCONECTAR CON MENSAJES ---
+app.post("/discord/connect", async (req, res) => {
+  const { nick } = req.body;
+  if (!nick) return res.status(400).json({ message: "Nick requerido" });
+
+  try {
+    const canal = await client.channels.fetch(CANAL_CONEXIONES);
+    canal.send(`✅ **${nick}** se ha conectado.`);
+    res.json({ message: `✅ ${nick} conectado` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error enviando mensaje a Discord" });
+  }
+});
+
+app.post("/discord/disconnect", async (req, res) => {
+  const { nick } = req.body;
+  if (!nick) return res.status(400).json({ message: "Nick requerido" });
+
+  try {
+    const canal = await client.channels.fetch(CANAL_CONEXIONES);
+    canal.send(`🔒 **${nick}** se ha desconectado.`);
+    res.json({ message: `🔒 ${nick} desconectado` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error enviando mensaje a Discord" });
+  }
+});
 
 // --- FRONTEND ---
 app.get("/", (req, res) => {
@@ -89,3 +114,4 @@ client.login(TOKEN);
 
 // --- INICIAR SERVIDOR ---
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
