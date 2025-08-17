@@ -107,18 +107,23 @@ form.addEventListener("submit", async (e)=>{
 });
 
 // Botón Conectar
-btnConectar.addEventListener("click", async ()=>{
+btnConectar.addEventListener("click", async () => {
   const data = JSON.parse(localStorage.getItem("usuarioData"));
   try {
-    await fetch("/conectar", {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({nick: data.nick})
+    const res = await fetch("/conectar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        nick: data.nick,
+        prefJuego: data.prefJuego  // <--- agrega esto
+      })
     });
-    btnConectar.style.display = "none";
-    btnDesconectar.style.display = "inline-block";
-    mensajeAccion.textContent = "✅ Ya puedes ingresar a cualquier servidor de Halo CE";
-  } catch(err){
+    const json = await res.json();
+    if (json.ok) {
+      estadoUsuario.textContent = "Conectado a servidores"; // o algún mensaje en pantalla
+      btnConectar.style.display = "none";
+    }
+  } catch (err) {
     console.error(err);
   }
 });
