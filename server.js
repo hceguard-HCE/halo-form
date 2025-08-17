@@ -40,7 +40,9 @@ app.post("/conectar", express.json(), async (req, res) => {
   try {
     const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
     if (canal) {
-      canal.send(`**${nick}** **${prefJuego}** se ha conectado.`);
+      const { nick, prefJuego } = data;
+const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego; 
+canal.send(`**${nick}** (${pref}) se ha conectado.`);
     }
     res.json({ ok: true });
   } catch (err) {
@@ -100,6 +102,7 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Start server
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
 
 
 
