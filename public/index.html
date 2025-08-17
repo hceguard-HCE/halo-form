@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro Halo CE</title>
 <style>
-  body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial; background:#1b1b1b; color:#fff; }
-  #container { background:#2c2c2c; padding:30px; border-radius:10px; width:350px; text-align:center; }
-  input, select, textarea, button { width:100%; margin:8px 0; padding:8px; border-radius:5px; border:none; }
-  textarea { resize:none; height:60px; }
-  button { background:#4CAF50; color:white; cursor:pointer; }
-  button:disabled { background:grey; }
-  small { font-size:12px; color:#ccc; display:block; margin-top:10px; }
-  #estadoDiv p { text-align:left; white-space:pre-line; }
+  body { display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial; background: #1b1b1b; color: #fff; }
+  #container { background: #2c2c2c; padding: 30px; border-radius: 10px; width: 350px; text-align: center; }
+  input, select, textarea, button { width: 100%; margin: 8px 0; padding: 8px; border-radius: 5px; border: none; }
+  textarea { resize: none; height: 60px; }
+  button { background: #4CAF50; color: white; cursor: pointer; }
+  button:disabled { background: grey; }
+  small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
 </style>
 </head>
 <body>
 <div id="container">
   <h2>Registro Halo CE</h2>
+  
   <form id="registroForm">
     <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo">
     <input type="text" id="pais" placeholder="País" required>
@@ -34,124 +34,110 @@
 
   <div id="estadoDiv" style="display:none;">
     <h3>Tu Información</h3>
-    <p id="infoUsuario"></p>
+    <pre id="infoUsuario"></pre>
     <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
     <button id="btnConectar">Conectar</button>
     <button id="btnDesconectar">Desconectar</button>
-    <p id="msjConexion" style="margin-top:10px;color:#4CAF50;"></p>
+    <small id="msgAccion"></small>
   </div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("registroForm");
-  const estadoDiv = document.getElementById("estadoDiv");
-  const infoUsuario = document.getElementById("infoUsuario");
-  const estadoUsuario = document.getElementById("estadoUsuario");
-  const btnConectar = document.getElementById("btnConectar");
-  const btnDesconectar = document.getElementById("btnDesconectar");
-  const msjConexion = document.getElementById("msjConexion");
+const form = document.getElementById("registroForm");
+const estadoDiv = document.getElementById("estadoDiv");
+const infoUsuario = document.getElementById("infoUsuario");
+const estadoUsuario = document.getElementById("estadoUsuario");
+const btnConectar = document.getElementById("btnConectar");
+const btnDesconectar = document.getElementById("btnDesconectar");
+const msgAccion = document.getElementById("msgAccion");
 
-  function getDeviceID() {
-    if(!localStorage.getItem("deviceID")) {
-      const id = crypto.randomUUID();
-      localStorage.setItem("deviceID", id);
-    }
-    return localStorage.getItem("deviceID");
+// Device ID persistente
+function getDeviceID() {
+  if(!localStorage.getItem("deviceID")) {
+    const id = crypto.randomUUID();
+    localStorage.setItem("deviceID", id);
   }
-  const deviceID = getDeviceID();
+  return localStorage.getItem("deviceID");
+}
 
-  function mostrarUsuario(data){
-    infoUsuario.textContent = 
-      `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+const deviceID = getDeviceID();
+
+// Revisar si ya se registró
+if(localStorage.getItem("usuarioData")) {
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
+  infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+  checkAprobado();
+}
+
+// Enviar formulario
+form.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const data = {
+    nick: document.getElementById("nick").value,
+    pais: document.getElementById("pais").value,
+    servidores: document.getElementById("servidores").value,
+    prefJuego: document.getElementById("prefJuego").value,
+    motivo: document.getElementById("motivo").value,
+    deviceID
+  };
+
+  try {
+    const res = await fetch("/registro", {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if(json.ok){
+      localStorage.setItem("usuarioData", JSON.stringify(data));
+      form.style.display = "none";
+      estadoDiv.style.display = "block";
+      infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+      checkAprobado();
+    } else {
+      msgAccion.textContent = "Error al enviar el registro";
+    }
+  } catch(err){
+    console.error(err);
+    msgAccion.textContent = "Error de conexión con el servidor";
   }
+});
 
-  // Si ya hay registro en localStorage
-  if(localStorage.getItem("usuarioData")){
-    const data = JSON.parse(localStorage.getItem("usuarioData"));
-    form.style.display = "none";
-    estadoDiv.style.display = "block";
-    mostrarUsuario(data);
+// Revisar aprobación
+async function checkAprobado(){
+  const res = await fetch(`/check/${deviceID}`);
+  const json = await res.json();
+  estadoUsuario.textContent = json.aprobado ? "Aprobado ✅" : "Pendiente ⏳";
+}
 
-    // Revisar si aprobado
-    fetch(`/check/${deviceID}`)
-      .then(r => r.json())
-      .then(json => { estadoUsuario.textContent = json.aprobado ? "Aprobado" : "Pendiente"; });
+// Botón conectar
+btnConectar.addEventListener("click", async ()=>{
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  const res = await fetch("/conectar", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ nick: data.nick, prefJuego: data.prefJuego })
+  });
+  if(res.ok){
+    msgAccion.textContent = "Conectado. Ya puedes ingresar a cualquier servidor HCEguar.";
+    btnConectar.disabled = true;
   }
+});
 
-  form.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    const data = {
-      nick: document.getElementById("nick").value,
-      pais: document.getElementById("pais").value,
-      servidores: document.getElementById("servidores").value,
-      prefJuego: document.getElementById("prefJuego").value,
-      motivo: document.getElementById("motivo").value,
-      deviceID
-    };
-
-    try {
-      const res = await fetch("/registro", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(data)
-      });
-      const json = await res.json();
-      if(json.ok){
-        localStorage.setItem("usuarioData", JSON.stringify(data));
-        form.style.display = "none";
-        estadoDiv.style.display = "block";
-        mostrarUsuario(data);
-        estadoUsuario.textContent = "Pendiente";
-      } else {
-        console.error("Error en registro backend");
-      }
-    } catch(err){
-      console.error("Error de conexión:", err);
-    }
+// Botón desconectar
+btnDesconectar.addEventListener("click", async ()=>{
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  const res = await fetch("/desconectar", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ nick: data.nick })
   });
-
-  btnConectar.addEventListener("click", async ()=>{
-    const data = JSON.parse(localStorage.getItem("usuarioData"));
-    try{
-      const res = await fetch("/conectar", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({nick: data.nick, prefJuego: data.prefJuego})
-      });
-      const json = await res.json();
-      if(json.ok){
-        msjConexion.textContent = "✅ Ahora puedes ingresar a cualquier servidor de Halo CE";
-        btnConectar.disabled = true;
-        btnDesconectar.disabled = false;
-      }
-    } catch(err){
-      console.error(err);
-    }
-  });
-
-  btnDesconectar.addEventListener("click", async ()=>{
-    const data = JSON.parse(localStorage.getItem("usuarioData"));
-    try{
-      const res = await fetch("/desconectar", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({nick: data.nick})
-      });
-      const json = await res.json();
-      if(json.ok){
-        msjConexion.textContent = "❌ Te has desconectado.";
-        btnConectar.disabled = false;
-        btnDesconectar.disabled = true;
-      }
-    } catch(err){
-      console.error(err);
-    }
-  });
-
-  // Inicializar botones
-  btnConectar.disabled = false;
-  btnDesconectar.disabled = true;
+  if(res.ok){
+    msgAccion.textContent = "Se ha desconectado.";
+    btnConectar.disabled = false;
+  }
 });
 </script>
 </body>
