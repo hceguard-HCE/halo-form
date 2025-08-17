@@ -3,36 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
- <script>
-  const isMobile = /iPhone|Android|iPad|Mobile/i.test(navigator.userAgent);
-  if (!isMobile) {
-    document.documentElement.innerHTML = `
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Acceso restringido</title>
-        <style>
-          body { background:#111; color:#fff; font-family:sans-serif; text-align:center; padding:40px; }
-        </style>
-      </head>
-      <body>
-        <h2>📵 Esta página solo está disponible en dispositivos móviles.</h2>
-        <p>Por favor accede desde tu teléfono.</p>
-      </body>
-    `;
-  }
-</script>
   <title>Registro Halo CE</title>
+
+  <script>
+    const isMobile = /iPhone|Android|iPad|Mobile/i.test(navigator.userAgent);
+    if (!isMobile) {
+      document.documentElement.classList.add("bloqueado");
+    }
+  </script>
+
   <style>
-    body { display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial; background: #1b1b1b; color: #fff; }
-    #container { background: #2c2c2c; padding: 30px; border-radius: 10px; width: 350px; text-align: center; }
-    input, select, textarea, button { width: 100%; margin: 8px 0; padding: 8px; border-radius: 5px; border: none; }
-    textarea { resize: none; height: 60px; }
-    button { background: #4CAF50; color: white; cursor: pointer; }
-    button:disabled { background: grey; }
-    small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
-    pre { text-align: left; white-space: pre-wrap; }
-    #codigoAccess { margin-top: 20px; }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial;
+      background: #1b1b1b;
+      color: #fff;
+    }
+
+    #container {
+      background: #2c2c2c;
+      padding: 30px;
+      border-radius: 10px;
+      width: 350px;
+      text-align: center;
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      margin: 8px 0;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+    }
+
+    textarea {
+      resize: none;
+      height: 60px;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      background: grey;
+    }
+
+    small {
+      font-size: 12px;
+      color: #ccc;
+      display: block;
+      margin-top: 10px;
+    }
+
+    pre {
+      text-align: left;
+      white-space: pre-wrap;
+    }
+
+    #codigoAccess {
+      margin-top: 20px;
+    }
+
+    .bloqueado body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 40px;
+      display: block;
+    }
+
+    .bloqueado #container {
+      display: none;
+    }
+
+    .bloqueado body::before {
+      content: "📵 Esta página solo está disponible en dispositivos móviles.\A Por favor accede desde tu teléfono.";
+      white-space: pre-wrap;
+      font-size: 18px;
+      display: block;
+      margin-top: 100px;
+    }
   </style>
 </head>
 <body>
@@ -182,8 +239,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ codigo: data.codigo })
         });
-        msgInfo.textContent = "Conectado correctamente.";
-        msgInfo.style.color = "#4CAF50";
+        msgInfo.textContent = "Conectado correctamente        msgInfo.style.color = "#4CAF50";
       } catch {
         msgInfo.textContent = "Error al conectar";
         msgInfo.style.color = "red";
@@ -205,49 +261,6 @@
         msgInfo.style.color = "red";
       }
     });
-
-
-<script>
-  // Detectar DevTools abiertos
-  let devtoolsOpen = false;
-
-  const threshold = 160;
-  setInterval(() => {
-    const widthDiff = window.outerWidth - window.innerWidth;
-    const heightDiff = window.outerHeight - window.innerHeight;
-    if (widthDiff > threshold || heightDiff > threshold) {
-      if (!devtoolsOpen) {
-        devtoolsOpen = true;
-        document.body.innerHTML = `
-          <div style="text-align:center; padding:40px; font-family:sans-serif; background:#111; color:#fff;">
-            <h2>🚫 Acceso bloqueado</h2>
-            <p>Desactiva las herramientas de desarrollador para continuar.</p>
-          </div>
-        `;
-      }
-    }
-  }, 1000);
-
-  // Bloquear clic derecho
-  document.addEventListener("contextmenu", e => e.preventDefault());
-
-  // Bloquear teclas comunes
-  document.addEventListener("keydown", e => {
-    if (
-      e.key === "F12" ||
-      (e.ctrlKey && e.shiftKey && ["I", "J", "C"].includes(e.key)) ||
-      (e.ctrlKey && e.key === "U")
-    ) {
-      e.preventDefault();
-    }
-  });
-</script>
-
-
-
-
-
-    
   </script>
 </body>
 </html>
