@@ -1,156 +1,79 @@
 import express from "express";
-import fs from "fs";
+import bodyParser from "body-parser";
 import path from "path";
 import { Client, GatewayIntentBits } from "discord.js";
-import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const {
-  DISCORD_BOT_TOKEN,
-  CANAL_CODIGOS,
-  CANAL_REGISTROS,
-  CANAL_APROBACIONES,
-  CANAL_CONEXIONES
-} = process.env;
+// Variables de entorno
+const TOKEN = process.env.DISCORD_TOKEN;
+const CANAL_CODIGOS = process.env.CANAL_CODIGOS;
+const CANAL_REGISTROS = process.env.CANAL_REGISTROS;
 
-if (!DISCORD_BOT_TOKEN || !CANAL_CODIGOS || !CANAL_REGISTROS || !CANAL_APROBACIONES || !CANAL_CONEXIONES) {
-  console.error("❌ Faltan variables de entorno necesarias.");
-  process.exit(1);
-}
+// Middleware
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-app.use(express.json());
-app.use(cors());
-app.use(express.static(path.join(process.cwd(), "public")));
-
+// --- DISCORD BOT ---
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-const FILE = path.join(process.cwd(), "disk", "registros.json");
-if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
-if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
-
-function loadRegistros() {
-  try {
-    const data = fs.readFileSync(FILE, "utf8");
-    return data ? JSON.parse(data) : {};
-  } catch {
-    return {};
-  }
-}
-function saveRegistros(data) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
-
-let registros = loadRegistros();
 let codigosDisponibles = new Set();
-let botReady = false;
 
-client.on("ready", () => {
-  console.log(`🤖 Bot listo como ${client.user.tag}`);
-  botReady = true;
-});
+client.once("ready", async () => {
+  console.log(`Bot listo como ${client.user.tag}`);
 
-client.on("messageCreate", (msg) => {
-  if (msg.channel.id === CANAL_CODIGOS) {
-    const match = msg.content.match(/INVITE-CODE:\s*(\S+)/);
-    if (match) {
-      const codigo = match[1].trim();
-      if (!registros[codigo]) {
-        codigosDisponibles.add(codigo);
-        msg.react("✅");
-      } else {
-        msg.react("⚠️");
-      }
-    }
+  // Cargar códigos del canal
+  const channel = await client.channels.fetch(CANAL_CODIGOS);
+  let lastId;
+  while (true) {
+    const options = { limit: 100 };
+    if (lastId) options.before = lastId;
+
+    const messages = await channel.messages.fetch(options);
+    if (messages.size === 0) break;
+
+    messages.forEach(msg => {
+      const match = msg.content.match(/INVITE-CODE:\s*([A-Z0-9\-]+)/);
+      if (match) codigosDisponibles.add(match[1]);
+    });
+
+    lastId = messages.last().id;
   }
 
-  if (msg.channel.id === CANAL_APROBACIONES) {
-    const [cmd, codigo] = msg.content.trim().split(" ");
-    const registro = registros[codigo];
-    if (!registro) return;
-
-    if (cmd === "approve") {
-      registro.aprobado = true;
-      saveRegistros(registros);
-      msg.reply(`✅ El registro de ${registro.nick} fue aprobado.`);
-    }
-
-    if (cmd === "deny") {
-      registro.aprobado = "rechazado";
-      saveRegistros(registros);
-      msg.reply(`❌ El registro de ${registro.nick} fue rechazado.`);
-    }
-  }
+  console.log("Códigos disponibles:", codigosDisponibles);
 });
 
+// --- RUTA REGISTRO ---
 app.post("/registro", async (req, res) => {
-  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
+  const { codigo, nick } = req.body;
 
-  const { codigo, nick, pais, servidores, prefJuego, motivo } = req.body;
-  if (!codigo || !codigosDisponibles.has(codigo)) return res.status(400).json({ ok: false, error: "Código inválido o ya usado" });
-  if (!nick || !/^[a-zA-Z0-9_]+$/.test(nick)) return res.status(400).json({ ok: false, error: "Nick inválido" });
+  if (!codigo || !nick) return res.status(400).json({ message: "❌ Código y nick requeridos" });
+  if (!codigosDisponibles.has(codigo)) return res.status(400).json({ message: "❌ Código inválido o ya usado" });
 
-  registros[codigo] = { codigo, nick, pais, servidores, prefJuego, motivo, aprobado: false };
   codigosDisponibles.delete(codigo);
-  saveRegistros(registros);
 
+  // Mandar mensaje al canal de registros
   try {
-    const canal = await client.channels.fetch(CANAL_REGISTROS);
-    await canal.send(`📋 Nuevo registro
-Nick: ${nick}
-Código: ${codigo}
-País: ${pais}
-Servidores: ${servidores}
-Preferencia: ${prefJuego}
-Motivo: ${motivo}`);
-    res.json({ ok: true });
+    const canalReg = await client.channels.fetch(CANAL_REGISTROS);
+    canalReg.send(`✅ Nuevo registro: **${nick}** con código ${codigo}`);
   } catch (err) {
-    console.error("Error al enviar registro:", err);
-    res.status(500).json({ ok: false });
+    console.error("Error enviando registro a Discord:", err);
   }
+
+  res.json({ message: "✅ Registro exitoso" });
 });
 
-app.get("/check/:codigo", (req, res) => {
-  const registro = registros[req.params.codigo];
-  if (!registro) return res.status(404).json({ error: "Código no encontrado" });
-  res.json({ aprobado: registro.aprobado, ...registro });
+// --- CONECTAR/DESCONECTAR SIMULADO ---
+app.post("/discord/connect", (req, res) => res.json({ message: "🔌 Conectado al servidor" }));
+app.post("/discord/disconnect", (req, res) => res.json({ message: "🔌 Desconectado del servidor" }));
+
+// --- FRONTEND ---
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.post("/conectar", async (req, res) => {
-  const { codigo } = req.body;
-  const registro = registros[codigo];
-  if (!registro || registro.aprobado !== true) return res.status(403).json({ ok: false });
-
-  try {
-    const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    await canal.send(`✅ ${registro.nick} se ha conectado.`);
-    res.json({ ok: true });
-  } catch {
-    res.status(500).json({ ok: false });
-  }
-});
-
-app.post("/desconectar", async (req, res) => {
-  const { codigo } = req.body;
-  const registro = registros[codigo];
-  if (!registro) return res.status(404).json({ ok: false });
-
-  try {
-    const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    await canal.send(`🔒 ${registro.nick} se ha desconectado.`);
-    res.json({ ok: true });
-  } catch {
-    res.status(500).json({ ok: false });
-  }
-});
-
-client.login(DISCORD_BOT_TOKEN);
-
-app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`));
+client.login(TOKEN);
+app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
