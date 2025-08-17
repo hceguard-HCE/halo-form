@@ -112,11 +112,20 @@
     }
 
     if (localStorage.getItem("usuarioData")) {
-      const data = JSON.parse(localStorage.getItem("usuarioData"));
-      form.style.display = "none";
-      estadoDiv.style.display = "block";
-      mostrarDatos(data);
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
+  mostrarDatos(data);
+
+  // Verificar si fue aprobado desde el backend
+  checkRegistro().then(aprobado => {
+    if (aprobado && !data.aprobado) {
+      data.aprobado = true;
+      localStorage.setItem("usuarioData", JSON.stringify(data));
+      estadoUsuario.textContent = "Aprobado";
     }
+  });
+}
 
     form.addEventListener("submit", async e => {
       e.preventDefault();
