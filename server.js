@@ -1,6 +1,7 @@
 import express from "express";
 import fetch from "node-fetch";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -8,49 +9,36 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, "public")));
 
-// Tu webhook seguro en Render → Environment Variables
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
-// Puerto de Render
-const PORT = process.env.PORT || 3000;
-
-// JSON local simulando aprobaciones
-const aprobados = {}; // ejemplo: { "device-id-ejemplo": true }
-
-// Endpoint para recibir registro desde frontend
+// Registro de formulario
 app.post("/registro", async (req, res) => {
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
 
   try {
     await fetch(WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type":"application/json" },
       body: JSON.stringify({
         content: `Nuevo registro:\nNick: ${nick}\nPaís: ${pais}\nServidores: ${servidores}\nPreferencia: ${prefJuego}\nMotivo: ${motivo}\nDeviceID: ${deviceID}`
       })
     });
     res.json({ ok: true });
-  } catch (err) {
+  } catch(err) {
     console.error(err);
-    res.status(500).json({ ok: false, error: "Error enviando webhook" });
+    res.json({ ok: false });
   }
 });
 
-// Endpoint para revisar si un deviceID está aprobado
-app.get("/check/:deviceID", (req, res) => {
+// Check si deviceID está aprobado
+app.get("/check/:deviceID", (req, res)=>{
   const deviceID = req.params.deviceID;
+  let aprobados = {};
+  try { aprobados = JSON.parse(fs.readFileSync("aprobados.json")); } catch(err) {}
   res.json({ aprobado: aprobados[deviceID] || false });
 });
 
-// Endpoint opcional para aprobar manualmente un deviceID
-app.post("/aprobar/:deviceID", (req, res) => {
-  const deviceID = req.params.deviceID;
-  aprobados[deviceID] = true;
-  res.json({ ok: true });
-});
-
-// Iniciar servidor
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=>console.log("Servidor corriendo en puerto " + PORT));
