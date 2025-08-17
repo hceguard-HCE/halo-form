@@ -2,6 +2,10 @@ const express = require("express");
 const fetch = require("node-fetch");
 const app = express();
 app.use(express.json());
+const path = require("path");
+
+// Servir archivos estáticos (HTML, CSS, JS)
+app.use(express.static(path.join(__dirname)));
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL; // Tu webhook seguro
 const PORT = process.env.PORT || 3000;
@@ -39,3 +43,4 @@ app.post("/aprobar/:deviceID", (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+
