@@ -73,7 +73,6 @@
       margin-top: 20px;
     }
 
-    /* Bloqueo para escritorio */
     body.bloqueado #container {
       display: none;
     }
@@ -126,141 +125,144 @@
       <p id="msgInfo" style="font-size: 14px;"></p>
     </div>
   </div>
-</body>
-</html>
-
 
   <script>
-    const form = document.getElementById("registroForm");
-    const estadoDiv = document.getElementById("estadoDiv");
-    const infoUsuario = document.getElementById("infoUsuario");
-    const estadoUsuario = document.getElementById("estadoUsuario");
-    const codigoUsuario = document.getElementById("codigoUsuario");
-    const btnConectar = document.getElementById("btnConectar");
-    const btnDesconectar = document.getElementById("btnDesconectar");
-    const msgInfo = document.getElementById("msgInfo");
-    const codigoAccess = document.getElementById("codigoAccess");
-    const inputCodigo = document.getElementById("inputCodigo");
-    const btnAcceder = document.getElementById("btnAcceder");
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("registroForm");
+      const estadoDiv = document.getElementById("estadoDiv");
+      const infoUsuario = document.getElementById("infoUsuario");
+      const estadoUsuario = document.getElementById("estadoUsuario");
+      const codigoUsuario = document.getElementById("codigoUsuario");
+      const btnConectar = document.getElementById("btnConectar");
+      const btnDesconectar = document.getElementById("btnDesconectar");
+      const msgInfo = document.getElementById("msgInfo");
+      const codigoAccess = document.getElementById("codigoAccess");
+      const inputCodigo = document.getElementById("inputCodigo");
+      const btnAcceder = document.getElementById("btnAcceder");
 
-    function mostrarDatos(data) {
-      infoUsuario.textContent =
-        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-      codigoUsuario.textContent = data.codigo;
+      function mostrarDatos(data) {
+        infoUsuario.textContent =
+          `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+        codigoUsuario.textContent = data.codigo;
 
-      if (data.aprobado === true) {
-        estadoUsuario.textContent = "Aprobado";
-        btnConectar.style.display = "inline-block";
-        btnDesconectar.style.display = "inline-block";
-      } else if (data.aprobado === "rechazado") {
-        estadoUsuario.textContent = "Rechazado";
-        btnConectar.style.display = "none";
-        btnDesconectar.style.display = "none";
-      } else {
-        estadoUsuario.textContent = "Pendiente";
-        btnConectar.style.display = "none";
-        btnDesconectar.style.display = "none";
-      }
-    }
-
-    async function checkRegistro(codigo) {
-      const res = await fetch(`/check/${codigo}`);
-      const data = await res.json();
-      return data;
-    }
-
-    if (localStorage.getItem("usuarioData")) {
-      const data = JSON.parse(localStorage.getItem("usuarioData"));
-      form.style.display = "none";
-      codigoAccess.style.display = "none";
-      estadoDiv.style.display = "block";
-      checkRegistro(data.codigo).then(result => {
-        const fullData = { ...data, aprobado: result.aprobado };
-        localStorage.setItem("usuarioData", JSON.stringify(fullData));
-        mostrarDatos(fullData);
-      });
-    }
-
-    form.addEventListener("submit", async e => {
-      e.preventDefault();
-      const data = {
-        codigo: document.getElementById("codigo").value.trim(),
-        nick: document.getElementById("nick").value,
-        pais: document.getElementById("pais").value,
-        servidores: document.getElementById("servidores").value,
-        prefJuego: document.getElementById("prefJuego").value,
-        motivo: document.getElementById("motivo").value
-      };
-
-      try {
-        const res = await fetch("/registro", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
-        const json = await res.json();
-        if (json.ok) {
-          const fullData = { ...data, aprobado: false };
-          localStorage.setItem("usuarioData", JSON.stringify(fullData));
-          form.style.display = "none";
-          codigoAccess.style.display = "none";
-          estadoDiv.style.display = "block";
-          mostrarDatos(fullData);
+        if (data.aprobado === true) {
+          estadoUsuario.textContent = "Aprobado";
+          btnConectar.style.display = "inline-block";
+          btnDesconectar.style.display = "inline-block";
+        } else if (data.aprobado === "rechazado") {
+          estadoUsuario.textContent = "Rechazado";
+          btnConectar.style.display = "none";
+          btnDesconectar.style.display = "none";
         } else {
-          msgInfo.textContent = json.error || "Error al registrar";
-          msgInfo.style.color = "red";
+          estadoUsuario.textContent = "Pendiente";
+          btnConectar.style.display = "none";
+          btnDesconectar.style.display = "none";
         }
-      } catch (err) {
-        msgInfo.textContent = "Error de conexión";
-        msgInfo.style.color = "red";
       }
-    });
 
-    btnAcceder.addEventListener("click", async () => {
-      const codigo = inputCodigo.value.trim();
-      const result = await checkRegistro(codigo);
-      if (result.nick) {
-        const data = { codigo, ...result };
-        localStorage.setItem("usuarioData", JSON.stringify(data));
+      async function checkRegistro(codigo) {
+        const res = await fetch(`/check/${codigo}`);
+        const data = await res.json();
+        return data;
+      }
+
+      if (localStorage.getItem("usuarioData")) {
+        const data = JSON.parse(localStorage.getItem("usuarioData"));
         form.style.display = "none";
         codigoAccess.style.display = "none";
         estadoDiv.style.display = "block";
-        mostrarDatos(data);
-      } else {
-        msgInfo.textContent = "Código inválido";
-        msgInfo.style.color = "orange";
+        checkRegistro(data.codigo).then(result => {
+          const fullData = { ...data, aprobado: result.aprobado };
+          localStorage.setItem("usuarioData", JSON.stringify(fullData));
+          mostrarDatos(fullData);
+        });
       }
-    });
 
-   btnConectar.addEventListener("click", async () => {
-      const data = JSON.parse(localStorage.getItem("usuarioData"));
-      try {
-        await fetch("/conectar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ codigo: data.codigo })
-        });
-        msgInfo.textContent = "Conectado correctamente.";
-        msgInfo.style.color = "#4CAF50";
-      } catch {
-        msgInfo.textContent = "Error al conectar";
-        msgInfo.style.color = "red";
-      }
-    });
-    btnDesconectar.addEventListener("click", async () => {
-      const data = JSON.parse(localStorage.getItem("usuarioData"));
-      try {
-        await fetch("/desconectar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ codigo: data.codigo })
-        });
-        msgInfo.textContent = "Desconectado correctamente.";
-        msgInfo.style.color = "#FF5722";
-      } catch {
-        msgInfo.textContent = "Error al desconectar";
-        msgInfo.style.color = "red";
-      }
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        msgInfo.textContent = "Enviando registro...";
+        msgInfo.style.color = "#ccc";
+
+        const data = {
+          codigo: document.getElementById("codigo").value.trim(),
+          nick: document.getElementById("nick").value,
+          pais: document.getElementById("pais").value,
+          servidores: document.getElementById("servidores").value,
+          prefJuego: document.getElementById("prefJuego").value,
+          motivo: document.getElementById("motivo").value
+        };
+
+        try {
+          const res = await fetch("/registro", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+          });
+          const json = await res.json();
+          if (json.ok) {
+            const fullData = { ...data, aprobado: false };
+            localStorage.setItem("usuarioData", JSON.stringify(fullData));
+            form.style.display = "none";
+            codigoAccess.style.display = "none";
+            estadoDiv.style.display = "block";
+            mostrarDatos(fullData);
+          } else {
+            msgInfo.textContent = json.error || "Error al registrar";
+            msgInfo.style.color = "red";
+          }
+        } catch (err) {
+          msgInfo.textContent = "Error de conexión";
+          msgInfo.style.color = "red";
+        }
+      });
+
+      btnAcceder.addEventListener("click", async () => {
+        const codigo = inputCodigo.value.trim();
+        const result = await checkRegistro(codigo);
+        if (result.nick) {
+          const data = { codigo, ...result };
+          localStorage.setItem("usuarioData", JSON.stringify(data));
+          form.style.display = "none";
+          codigoAccess.style.display = "none";
+          estadoDiv.style.display = "block";
+          mostrarDatos(data);
+        } else {
+          msgInfo.textContent = "Código inválido";
+          msgInfo.style.color = "orange";
+        }
+      });
+
+      btnConectar.addEventListener("click", async () => {
+        const data = JSON.parse(localStorage.getItem("usuarioData"));
+        try {
+          await fetch("/conectar", {
+            method: "POST",
+            headers: { "Content-Type": headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codigo: data.codigo })
+          });
+          msgInfo.textContent = "Conectado correctamente.";
+          msgInfo.style.color = "#4CAF50";
+        } catch {
+          msgInfo.textContent = "Error al conectar";
+          msgInfo.style.color = "red";
+        }
+      });
+
+      btnDesconectar.addEventListener("click", async () => {
+        const data = JSON.parse(localStorage.getItem("usuarioData"));
+        try {
+          await fetch("/desconectar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ codigo: data.codigo })
+          });
+          msgInfo.textContent = "Desconectado correctamente.";
+          msgInfo.style.color = "#FF5722";
+        } catch {
+          msgInfo.textContent = "Error al desconectar";
+          msgInfo.style.color = "red";
+        }
+      });
     });
   </script>
 </body>
