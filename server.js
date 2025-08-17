@@ -1,9 +1,10 @@
-const express = require("express");
-const fetch = require("node-fetch");
+import express from "express";
+import fetch from "node-fetch";
+
 const app = express();
 app.use(express.json());
 
-const WEBHOOK_URL = process.env.WEBHOOK_URL; // <-- tu webhook seguro
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
 app.post("/registro", async (req, res) => {
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
