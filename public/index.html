@@ -5,45 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro Halo CE</title>
 <style>
-  body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: Arial, sans-serif;
-    background: linear-gradient(to right, #4facfe, #00f2fe);
-    margin: 0;
-    color: #fff;
-  }
-  #container {
-    background: #2c2c2c;
-    padding: 30px;
-    border-radius: 10px;
-    width: 350px;
-    text-align: center;
-  }
-  input, select, textarea, button {
-    width: 100%;
-    margin: 8px 0;
-    padding: 8px;
-    border-radius: 5px;
-    border: none;
-    font-size: 14px;
-  }
-  textarea { resize: none; height: 60px; }
-  button { cursor: pointer; background: #4CAF50; color: white; }
-  button:disabled { background: grey; cursor: default; }
-  #estadoDiv { display: none; margin-top: 20px; text-align: left; }
-  #estadoDiv p { margin: 5px 0; white-space: pre-line; }
+  body { display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial; background: #1b1b1b; color: #fff; }
+  #container { background: #2c2c2c; padding: 30px; border-radius: 10px; width: 350px; text-align: center; }
+  input, select, button { width: 100%; margin: 8px 0; padding: 8px; border-radius: 5px; border: none; }
+  button { background: #4CAF50; color: white; cursor: pointer; }
+  button:disabled { background: grey; }
   small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
+  .info p { margin: 5px 0; }
 </style>
 </head>
 <body>
 <div id="container">
   <h2>Registro Halo CE</h2>
-
+  
   <form id="registroForm">
-    <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo">
+    <input type="text" id="nick" placeholder="Nick en Halo CE" required>
     <input type="text" id="pais" placeholder="País" required>
     <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required>
     <select id="prefJuego" required>
@@ -53,16 +29,16 @@
     </select>
     <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
     <button type="submit">Crear</button>
-    <small>12–48 horas para revisar, salvo recomendación de un administrador.</small>
+    <small>12–48 horas para revisión, salvo recomendación de un administrador.</small>
   </form>
 
-  <div id="estadoDiv">
+  <div id="estadoDiv" style="display:none;">
     <h3>Tu Información</h3>
-    <p id="infoUsuario"></p>
-    <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
+    <div class="info" id="infoUsuario"></div>
+    <p>Estado: <span id="estadoUsuario">Activo</span></p>
     <button id="btnConectar">Conectar</button>
     <button id="btnDesconectar">Desconectar</button>
-    <p id="msgConexion" style="color: #4CAF50; font-weight: bold;"></p>
+    <p id="mensaje"></p>
   </div>
 </div>
 
@@ -70,31 +46,19 @@
 const form = document.getElementById("registroForm");
 const estadoDiv = document.getElementById("estadoDiv");
 const infoUsuario = document.getElementById("infoUsuario");
-const estadoUsuario = document.getElementById("estadoUsuario");
 const btnConectar = document.getElementById("btnConectar");
 const btnDesconectar = document.getElementById("btnDesconectar");
-const msgConexion = document.getElementById("msgConexion");
+const mensaje = document.getElementById("mensaje");
 
-// Device ID persistente
 function getDeviceID() {
   if(!localStorage.getItem("deviceID")) {
-    localStorage.setItem("deviceID", crypto.randomUUID());
+    const id = crypto.randomUUID();
+    localStorage.setItem("deviceID", id);
   }
   return localStorage.getItem("deviceID");
 }
 const deviceID = getDeviceID();
 
-// Mostrar información si ya hay registro
-if(localStorage.getItem("usuarioData")) {
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  form.style.display = "none";
-  estadoDiv.style.display = "block";
-  infoUsuario.textContent = 
-    `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-  estadoUsuario.textContent = "Activo";
-}
-
-// Enviar formulario al backend
 form.addEventListener("submit", async (e)=>{
   e.preventDefault();
   const data = {
@@ -107,69 +71,78 @@ form.addEventListener("submit", async (e)=>{
   };
 
   try {
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(data)
-    });
-    const json = await res.json();
-    if(json.ok){
-      localStorage.setItem("usuarioData", JSON.stringify(data));
-      form.style.display = "none";
-      estadoDiv.style.display = "block";
-      infoUsuario.textContent = 
-        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-      estadoUsuario.textContent = "Pendiente";
-    } else {
-      msgConexion.textContent = "Error al enviar el registro.";
+    // Revisar si está aprobado
+    const check = await fetch(`/check/${deviceID}`);
+    const status = await check.json();
+    if(!status.aprobado){
+      mensaje.textContent = "⏳ Tu registro está pendiente de aprobación en Discord.";
+      return;
     }
+
+    localStorage.setItem("usuarioData", JSON.stringify(data));
+    form.style.display = "none";
+    estadoDiv.style.display = "block";
+    infoUsuario.innerHTML = `
+      <p>Nick: ${data.nick}</p>
+      <p>País: ${data.pais}</p>
+      <p>Servidores: ${data.servidores}</p>
+      <p>Preferencia: ${data.prefJuego}</p>
+      <p>Motivo: ${data.motivo}</p>
+    `;
   } catch(err){
     console.error(err);
-    msgConexion.textContent = "Error de conexión con el servidor.";
+    mensaje.textContent = "Error de conexión con el servidor.";
   }
 });
 
-// Conectar
 btnConectar.addEventListener("click", async ()=>{
   const data = JSON.parse(localStorage.getItem("usuarioData"));
   try {
     const res = await fetch("/conectar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ userId: deviceID, nick: data.nick, prefJuego: data.prefJuego })
     });
     const json = await res.json();
     if(json.ok){
-      estadoUsuario.textContent = "Activo";
-      msgConexion.textContent = "✅ Ya puedes ingresar a cualquier servidor de Halo CE.";
+      mensaje.textContent = "✅ Ya puedes ingresar a cualquier servidor de Halo CE.";
       btnConectar.style.display = "none";
     }
   } catch(err){
     console.error(err);
-    msgConexion.textContent = "Error notificando conexión.";
+    mensaje.textContent = "Error al conectarse.";
   }
 });
 
-// Desconectar
 btnDesconectar.addEventListener("click", async ()=>{
   const data = JSON.parse(localStorage.getItem("usuarioData"));
   try {
-    const res = await fetch("/desconectar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
+    await fetch("/desconectar", {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ nick: data.nick })
     });
-    const json = await res.json();
-    if(json.ok){
-      estadoUsuario.textContent = "Pendiente";
-      msgConexion.textContent = "⚠️ Te has desconectado.";
-      btnConectar.style.display = "inline-block";
-    }
+    mensaje.textContent = "⚠️ Te has desconectado.";
+    btnDesconectar.style.display = "none";
   } catch(err){
     console.error(err);
-    msgConexion.textContent = "Error notificando desconexión.";
+    mensaje.textContent = "Error al desconectarse.";
   }
 });
+
+// Mostrar estado si ya estaba registrado
+if(localStorage.getItem("usuarioData")){
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
+  infoUsuario.innerHTML = `
+    <p>Nick: ${data.nick}</p>
+    <p>País: ${data.pais}</p>
+    <p>Servidores: ${data.servidores}</p>
+    <p>Preferencia: ${data.prefJuego}</p>
+    <p>Motivo: ${data.motivo}</p>
+  `;
+}
 </script>
 </body>
 </html>
