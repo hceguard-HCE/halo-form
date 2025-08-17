@@ -21,11 +21,11 @@ const client = new Client({
   ],
 });
 
-const CANAL_REGISTROS = process.env.CANAL_REGISTROS;       // Canal donde llegan los registros
-const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES; // Canal donde se hace approve/deny
-const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;     // Canal de conexión/desconexión
+const CANAL_REGISTROS = process.env.CANAL_REGISTROS;
+const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES;
+const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;
 
-// Archivo para persistencia opcional
+// Archivo para persistencia
 const FILE = path.join(process.cwd(), "disk", "registros.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
@@ -48,21 +48,16 @@ function saveRegistros(data) {
 // En memoria
 let registros = loadRegistros();
 
-// Endpoint para recibir registros desde el frontend
+// Endpoint para recibir registros
 app.post("/registro", async (req, res) => {
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
   if (!deviceID) return res.status(400).json({ ok: false, error: "No hay deviceID" });
 
-  // Guardar registro inicial
   registros[deviceID] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
   saveRegistros(registros);
 
-app.post("/registro", async (req, res) => {
-  const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
-
   try {
-    // Canal de Discord donde se envían los nuevos registros
-    const canal = await client.channels.fetch(process.env.CANAL_REGISTROS);
+    const canal = await client.channels.fetch(CANAL_REGISTROS);
     if (canal) {
       canal.send(`📋 Nuevo registro
 Nick: ${nick}
@@ -71,25 +66,6 @@ Servidores: ${servidores}
 Preferencia: ${prefJuego}
 Motivo: ${motivo}
 DeviceID: ${deviceID}`);
-    }
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false });
-  }
-});
-
-
-
-  
-  // Enviar al canal de registros
-  try {
-    const canal = await client.channels.fetch(CANAL_REGISTROS);
-    if (canal) {
-      canal.send(
-        `📋 Nuevo registro\nNick: ${nick}\nPaís: ${pais}\nServidores: ${servidores}\nPreferencia: ${prefJuego}\nMotivo: ${motivo}\nDeviceID: ${deviceID}`
-      );
     }
     res.json({ ok: true });
   } catch (err) {
@@ -105,7 +81,7 @@ app.get("/check/:id", (req, res) => {
   res.json({ aprobado });
 });
 
-// Endpoint para notificar conexión
+// Conectar / Desconectar
 app.post("/conectar", async (req, res) => {
   const { nick, prefJuego } = req.body;
   try {
@@ -121,7 +97,6 @@ app.post("/conectar", async (req, res) => {
   }
 });
 
-// Endpoint para notificar desconexión
 app.post("/desconectar", async (req, res) => {
   const { nick } = req.body;
   try {
@@ -134,7 +109,7 @@ app.post("/desconectar", async (req, res) => {
   }
 });
 
-// Bot escucha el canal de aprobaciones
+// Canal de aprobaciones
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
 
@@ -164,4 +139,3 @@ app.get("/", (req, res) => {
 
 // Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
-
