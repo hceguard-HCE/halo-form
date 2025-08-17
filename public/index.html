@@ -1,48 +1,10 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro Halo CE</title>
-<style>
-  body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial; background:#1b1b1b; color:#fff; }
-  #container { background:#2c2c2c; padding:30px; border-radius:10px; width:350px; text-align:center; }
-  input, select, textarea, button { width:100%; margin:8px 0; padding:8px; border-radius:5px; border:none; }
-  textarea { resize:none; height:60px; }
-  button { background:#4CAF50; color:white; cursor:pointer; }
-  button:disabled { background:grey; }
-  small { font-size:12px; color:#ccc; display:block; margin-top:10px; }
-  #estadoDiv pre { text-align:left; white-space: pre-wrap; }
-  #btnDesconectar { background:#f44336; margin-top:5px; }
-  #mensajeAccion { margin-top:10px; color:#4CAF50; font-weight:bold; }
-</style>
-</head>
-<body>
-<div id="container">
-  <h2>Registro Halo CE</h2>
-  
-  <form id="registroForm">
-    <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo">
-    <input type="text" id="pais" placeholder="País" required>
-    <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required>
-    <select id="prefJuego" required>
-      <option value="">¿Cómo prefieres jugar Halo CE?</option>
-      <option value="Pro / competitivo">Pro / competitivo</option>
-      <option value="Casual / recreativo">Casual / recreativo</option>
-    </select>
-    <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
-    <button type="submit">Crear</button>
-    <small>12–48 horas para revisar, salvo recomendación de un administrador.</small>
-  </form>
-
-  <div id="estadoDiv" style="display:none;">
-    <h3>Tu Información</h3>
-    <pre id="infoUsuario"></pre>
-    <p>Estado: <span id="estadoUsuario">Activo</span></p>
-    <button id="btnConectar">Conectar</button>
-    <button id="btnDesconectar" style="display:none">Desconectar</button>
-    <p id="mensajeAccion"></p>
-  </div>
+<div id="estadoDiv" style="display:none;">
+  <h3>Tu Información</h3>
+  <pre id="infoUsuario"></pre>
+  <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
+  <button id="btnConectar" style="display:none">Conectar</button>
+  <button id="btnDesconectar" style="display:none">Desconectar</button>
+  <p id="mensajeServidor" style="color:#0f0; margin-top:10px; display:none;">✅ Ya puedes ingresar a cualquier servidor de Halo CE</p>
 </div>
 
 <script>
@@ -51,9 +13,8 @@ const estadoDiv = document.getElementById("estadoDiv");
 const infoUsuario = document.getElementById("infoUsuario");
 const btnConectar = document.getElementById("btnConectar");
 const btnDesconectar = document.getElementById("btnDesconectar");
-const mensajeAccion = document.getElementById("mensajeAccion");
+const mensajeServidor = document.getElementById("mensajeServidor");
 
-// Device ID persistente
 function getDeviceID() {
   if(!localStorage.getItem("deviceID")) {
     const id = crypto.randomUUID();
@@ -63,16 +24,11 @@ function getDeviceID() {
 }
 const deviceID = getDeviceID();
 
-// Mostrar info si ya existe usuario registrado
-if(localStorage.getItem("usuarioData")) {
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  form.style.display = "none";
-  estadoDiv.style.display = "block";
+function mostrarDatosUsuario(data){
   infoUsuario.textContent = 
     `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
 }
 
-// Enviar formulario al backend
 form.addEventListener("submit", async (e)=>{
   e.preventDefault();
   const data = {
@@ -95,55 +51,63 @@ form.addEventListener("submit", async (e)=>{
       localStorage.setItem("usuarioData", JSON.stringify(data));
       form.style.display = "none";
       estadoDiv.style.display = "block";
-      infoUsuario.textContent = 
-        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-    } else {
-      alert("Error al enviar el registro");
+      mostrarDatosUsuario(data);
     }
   } catch(err){
     console.error(err);
-    alert("Error de conexión con el servidor");
   }
 });
 
-// Botón Conectar
-btnConectar.addEventListener("click", async () => {
+// Revisar aprobación cada 10s
+async function checkEstado(){
   const data = JSON.parse(localStorage.getItem("usuarioData"));
+  if(!data) return;
+
   try {
-    const res = await fetch("/conectar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        nick: data.nick,
-        prefJuego: data.prefJuego  // <--- agrega esto
-      })
-    });
+    const res = await fetch(`/check/${deviceID}`);
     const json = await res.json();
-    if (json.ok) {
-      estadoUsuario.textContent = "Conectado a servidores"; // o algún mensaje en pantalla
+    if(json.aprobado){
+      document.getElementById("estadoUsuario").textContent = "Activo";
+      btnConectar.style.display = "inline-block";
+      mensajeServidor.style.display = "block";
+    } else {
+      document.getElementById("estadoUsuario").textContent = "Pendiente";
       btnConectar.style.display = "none";
+      mensajeServidor.style.display = "none";
     }
-  } catch (err) {
+  } catch(err){
     console.error(err);
   }
+}
+
+setInterval(checkEstado, 10000);
+checkEstado();
+
+// Conectar
+btnConectar.addEventListener("click", async ()=>{
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  try {
+    await fetch("/conectar", {
+      method:"POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ nick: data.nick, prefJuego: data.prefJuego })
+    });
+    btnConectar.style.display = "none";
+    btnDesconectar.style.display = "inline-block";
+  } catch(err){ console.error(err); }
 });
 
-// Botón Desconectar
+// Desconectar
 btnDesconectar.addEventListener("click", async ()=>{
   const data = JSON.parse(localStorage.getItem("usuarioData"));
   try {
     await fetch("/desconectar", {
       method:"POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({nick: data.nick})
+      body: JSON.stringify({ nick: data.nick })
     });
     btnDesconectar.style.display = "none";
     btnConectar.style.display = "inline-block";
-    mensajeAccion.textContent = "⚠️ Se ha desconectado";
-  } catch(err){
-    console.error(err);
-  }
+  } catch(err){ console.error(err); }
 });
 </script>
-</body>
-</html>
