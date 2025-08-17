@@ -232,7 +232,7 @@
       }
     });
 
-    btnConectar.addEventListener("click", async () => {
+   btnConectar.addEventListener("click", async () => {
       const data = JSON.parse(localStorage.getItem("usuarioData"));
       try {
         await fetch("/conectar", {
@@ -240,13 +240,13 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ codigo: data.codigo })
         });
-        msgInfo.textContent = "Conectado correctamente        msgInfo.style.color = "#4CAF50";
+        msgInfo.textContent = "Conectado correctamente.";
+        msgInfo.style.color = "#4CAF50";
       } catch {
         msgInfo.textContent = "Error al conectar";
         msgInfo.style.color = "red";
       }
     });
-
     btnDesconectar.addEventListener("click", async () => {
       const data = JSON.parse(localStorage.getItem("usuarioData"));
       try {
