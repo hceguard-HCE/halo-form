@@ -16,7 +16,12 @@ if (!fs.existsSync(filePath)) {
 
 // Leer aprobados
 function getAprobados() {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  try {
+    const data = fs.readFileSync("aprobados.json", "utf8");
+    return data ? JSON.parse(data) : {};
+  } catch (err) {
+    return {}; // si no existe o está vacío
+  }
 }
 
 // Guardar aprobados
@@ -75,4 +80,5 @@ client.on("messageCreate", (msg) => {
 client.login(process.env.DISCORD_BOT_TOKEN);
 
 app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
+
 
