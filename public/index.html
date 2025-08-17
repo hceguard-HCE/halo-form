@@ -13,7 +13,7 @@
     button:disabled { background: grey; }
     small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
     pre { text-align: left; white-space: pre-wrap; }
-    #guidAccess { margin-top: 20px; }
+    #codigoAccess { margin-top: 20px; }
   </style>
 </head>
 <body>
@@ -21,6 +21,7 @@
     <h2>Registro Halo CE</h2>
 
     <form id="registroForm">
+      <input type="text" id="codigo" placeholder="Código de invitación" required />
       <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" />
       <input type="text" id="pais" placeholder="País" required />
       <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required />
@@ -31,20 +32,20 @@
       </select>
       <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
       <button type="submit">Crear registro</button>
-      <small>Tu GUID será tu token de acceso. Guárdalo bien.</small>
+      <small>Tu código será tu acceso permanente. Guárdalo bien.</small>
       <small>Soporte: <a href="mailto:hceguard@correo.com">hceguard@correo.com</a></small>
     </form>
 
-    <div id="guidAccess">
-      <h3>¿Ya tienes tu token?</h3>
-      <input type="text" id="inputGuid" placeholder="Ingresa tu GUID" />
+    <div id="codigoAccess">
+      <h3>¿Ya tienes tu código?</h3>
+      <input type="text" id="inputCodigo" placeholder="Ingresa tu código" />
       <button id="btnAcceder">Acceder</button>
     </div>
 
     <div id="estadoDiv" style="display:none;">
       <h3>Tu Información</h3>
       <pre id="infoUsuario"></pre>
-      <p><strong>Token:</strong> <span id="guidUsuario"></span></p>
+      <p><strong>Código:</strong> <span id="codigoUsuario"></span></p>
       <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
       <button id="btnConectar" style="display:none;">Conectar</button>
       <button id="btnDesconectar" style="display:none;">Desconectar</button>
@@ -57,25 +58,25 @@
     const estadoDiv = document.getElementById("estadoDiv");
     const infoUsuario = document.getElementById("infoUsuario");
     const estadoUsuario = document.getElementById("estadoUsuario");
-    const guidUsuario = document.getElementById("guidUsuario");
+    const codigoUsuario = document.getElementById("codigoUsuario");
     const btnConectar = document.getElementById("btnConectar");
     const btnDesconectar = document.getElementById("btnDesconectar");
     const msgInfo = document.getElementById("msgInfo");
-    const guidAccess = document.getElementById("guidAccess");
-    const inputGuid = document.getElementById("inputGuid");
+    const codigoAccess = document.getElementById("codigoAccess");
+    const inputCodigo = document.getElementById("inputCodigo");
     const btnAcceder = document.getElementById("btnAcceder");
 
     function mostrarDatos(data) {
       infoUsuario.textContent =
         `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-      guidUsuario.textContent = data.guid;
+      codigoUsuario.textContent = data.codigo;
       estadoUsuario.textContent = data.aprobado ? "Aprobado" : "Pendiente";
       btnConectar.style.display = data.aprobado ? "inline-block" : "none";
       btnDesconectar.style.display = data.aprobado ? "inline-block" : "none";
     }
 
-    async function checkRegistro(guid) {
-      const res = await fetch(`/check/${guid}`);
+    async function checkRegistro(codigo) {
+      const res = await fetch(`/check/${codigo}`);
       const data = await res.json();
       return data;
     }
@@ -83,9 +84,9 @@
     if (localStorage.getItem("usuarioData")) {
       const data = JSON.parse(localStorage.getItem("usuarioData"));
       form.style.display = "none";
-      guidAccess.style.display = "none";
+      codigoAccess.style.display = "none";
       estadoDiv.style.display = "block";
-      checkRegistro(data.guid).then(result => {
+      checkRegistro(data.codigo).then(result => {
         const fullData = { ...data, aprobado: result.aprobado };
         localStorage.setItem("usuarioData", JSON.stringify(fullData));
         mostrarDatos(fullData);
@@ -95,6 +96,7 @@
     form.addEventListener("submit", async e => {
       e.preventDefault();
       const data = {
+        codigo: document.getElementById("codigo").value.trim(),
         nick: document.getElementById("nick").value,
         pais: document.getElementById("pais").value,
         servidores: document.getElementById("servidores").value,
@@ -110,10 +112,10 @@
         });
         const json = await res.json();
         if (json.ok) {
-          const fullData = { ...data, guid: json.guid, aprobado: false };
+          const fullData = { ...data, aprobado: false };
           localStorage.setItem("usuarioData", JSON.stringify(fullData));
           form.style.display = "none";
-          guidAccess.style.display = "none";
+          codigoAccess.style.display = "none";
           estadoDiv.style.display = "block";
           mostrarDatos(fullData);
         } else {
@@ -127,17 +129,17 @@
     });
 
     btnAcceder.addEventListener("click", async () => {
-      const guid = inputGuid.value.trim();
-      const result = await checkRegistro(guid);
+      const codigo = inputCodigo.value.trim();
+      const result = await checkRegistro(codigo);
       if (result.nick) {
-        const data = { guid, nick: result.nick, pais: "", servidores: "", prefJuego: "", motivo: "", aprobado: result.aprobado };
+        const data = { codigo, ...result };
         localStorage.setItem("usuarioData", JSON.stringify(data));
         form.style.display = "none";
-        guidAccess.style.display = "none";
+        codigoAccess.style.display = "none";
         estadoDiv.style.display = "block";
         mostrarDatos(data);
       } else {
-        msgInfo.textContent = "Token inválido";
+        msgInfo.textContent = "Código inválido";
         msgInfo.style.color = "orange";
       }
     });
@@ -148,7 +150,7 @@
         await fetch("/conectar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guid: data.guid })
+          body: JSON.stringify({ codigo: data.codigo })
         });
         msgInfo.textContent = "Conectado correctamente.";
         msgInfo.style.color = "#4CAF50";
@@ -164,7 +166,7 @@
         await fetch("/desconectar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guid: data.guid })
+          body: JSON.stringify({ codigo: data.codigo })
         });
         msgInfo.textContent = "Desconectado correctamente.";
         msgInfo.style.color = "#FF5722";
