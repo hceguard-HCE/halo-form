@@ -197,6 +197,49 @@
         msgInfo.style.color = "red";
       }
     });
+
+
+<script>
+  // Detectar DevTools abiertos
+  let devtoolsOpen = false;
+
+  const threshold = 160;
+  setInterval(() => {
+    const widthDiff = window.outerWidth - window.innerWidth;
+    const heightDiff = window.outerHeight - window.innerHeight;
+    if (widthDiff > threshold || heightDiff > threshold) {
+      if (!devtoolsOpen) {
+        devtoolsOpen = true;
+        document.body.innerHTML = `
+          <div style="text-align:center; padding:40px; font-family:sans-serif; background:#111; color:#fff;">
+            <h2>🚫 Acceso bloqueado</h2>
+            <p>Desactiva las herramientas de desarrollador para continuar.</p>
+          </div>
+        `;
+      }
+    }
+  }, 1000);
+
+  // Bloquear clic derecho
+  document.addEventListener("contextmenu", e => e.preventDefault());
+
+  // Bloquear teclas comunes
+  document.addEventListener("keydown", e => {
+    if (
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && ["I", "J", "C"].includes(e.key)) ||
+      (e.ctrlKey && e.key === "U")
+    ) {
+      e.preventDefault();
+    }
+  });
+</script>
+
+
+
+
+
+    
   </script>
 </body>
 </html>
