@@ -85,7 +85,8 @@ GUID: ${guid}`);
 app.get("/check/:guid", (req, res) => {
   const guid = req.params.guid;
   const registro = registros[guid];
-  res.json({ aprobado: registro?.aprobado || false, nick: registro?.nick || null });
+  if (!registro) return res.status(404).json({ error: "GUID no encontrado" });
+  res.json({ aprobado: registro.aprobado, nick: registro.nick });
 });
 
 app.post("/conectar", async (req, res) => {
