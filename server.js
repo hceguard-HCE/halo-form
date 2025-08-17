@@ -3,6 +3,9 @@ import fs from "fs";
 import path from "path";
 import { Client, GatewayIntentBits } from "discord.js";
 
+import cors from "cors";
+app.use(cors());
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -101,6 +104,7 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Start server
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
 
 
 
