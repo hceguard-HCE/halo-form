@@ -46,10 +46,13 @@ const estadoDiv = document.getElementById("estadoDiv");
 const infoUsuario = document.getElementById("infoUsuario");
 const btnConectar = document.getElementById("btnConectar");
 
-// Device ID persistente
+// Device ID compatible con todos los navegadores
 function getDeviceID() {
   if(!localStorage.getItem("deviceID")) {
-    const id = crypto.randomUUID();
+    const id = 'xxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0, v = c=='x'?r:(r&0x3|0x8);
+      return v.toString(16);
+    });
     localStorage.setItem("deviceID", id);
   }
   return localStorage.getItem("deviceID");
@@ -58,11 +61,20 @@ function getDeviceID() {
 const deviceID = getDeviceID();
 
 // Mostrar estado si ya existe usuario registrado
-if(localStorage.getItem("usuarioData")) {
-  form.style.display = "none";
-  estadoDiv.style.display = "block";
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+try {
+  if(localStorage.getItem("usuarioData")) {
+    const data = JSON.parse(localStorage.getItem("usuarioData"));
+    if(data){
+      form.style.display = "none";
+      estadoDiv.style.display = "block";
+      infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+      document.getElementById("estadoUsuario").textContent = "Pendiente";
+      btnConectar.style.display = "none";
+    }
+  }
+} catch(err){
+  console.error("Error parsing localStorage", err);
+  localStorage.removeItem("usuarioData");
 }
 
 // Enviar formulario al backend
@@ -94,7 +106,7 @@ form.addEventListener("submit", async (e) => {
     } else {
       alert("Error al enviar el registro");
     }
-  } catch(err) {
+  } catch(err){
     console.error(err);
     alert("Error de conexión con el servidor");
   }
@@ -107,11 +119,12 @@ btnConectar.addEventListener("click", () => {
 
 // Revisar estado cada 10s
 async function checkEstado() {
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  if(!data) return;
-
   try {
+    const data = JSON.parse(localStorage.getItem("usuarioData"));
+    if(!data) return;
+
     const res = await fetch(`/check/${data.deviceID}`);
+    if(!res.ok) return;
     const json = await res.json();
 
     if(json.aprobado){
@@ -125,7 +138,7 @@ async function checkEstado() {
       btnConectar.disabled = true;
     }
   } catch(err){
-    console.error(err);
+    console.error("Error en checkEstado:", err);
   }
 }
 
