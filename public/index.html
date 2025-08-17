@@ -54,4 +54,100 @@
 
     function mostrarDatos(data) {
       infoUsuario.textContent =
-        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.pref
+        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+      estadoUsuario.textContent = data.aprobado ? "Aprobado" : "Pendiente";
+    }
+
+    async function checkRegistro(nick) {
+      const res = await fetch(`/check/${encodeURIComponent(nick)}`);
+      const data = await res.json();
+      return data.aprobado;
+    }
+
+    if (localStorage.getItem("usuarioData")) {
+      const data = JSON.parse(localStorage.getItem("usuarioData"));
+      form.style.display = "none";
+      estadoDiv.style.display = "block";
+      mostrarDatos(data);
+
+      checkRegistro(data.nick).then(aprobado => {
+        if (aprobado && !data.aprobado) {
+          data.aprobado = true;
+          localStorage.setItem("usuarioData", JSON.stringify(data));
+          estadoUsuario.textContent = "Aprobado";
+        }
+      });
+    }
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const data = {
+        nick: document.getElementById("nick").value,
+        pais: document.getElementById("pais").value,
+        servidores: document.getElementById("servidores").value,
+        prefJuego: document.getElementById("prefJuego").value,
+        motivo: document.getElementById("motivo").value
+      };
+
+      try {
+        const res = await fetch("/registro", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (json.ok) {
+          localStorage.setItem("usuarioData", JSON.stringify({ ...data, aprobado: false }));
+          form.style.display = "none";
+          estadoDiv.style.display = "block";
+          mostrarDatos({ ...data, aprobado: false });
+        } else {
+          msgInfo.textContent = json.error || "Error al enviar el registro";
+          msgInfo.style.color = "red";
+        }
+      } catch (err) {
+        console.error(err);
+        msgInfo.textContent = "Error de conexión con el servidor";
+        msgInfo.style.color = "red";
+      }
+    });
+
+    btnConectar.addEventListener("click", async () => {
+      const data = JSON.parse(localStorage.getItem("usuarioData"));
+      if (!data.aprobado) {
+        msgInfo.textContent = "Tu registro aún no ha sido aprobado.";
+        msgInfo.style.color = "orange";
+        return;
+      }
+      try {
+        await fetch("/conectar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nick: data.nick, prefJuego: data.prefJuego })
+        });
+        msgInfo.textContent = "Conectado, ya puedes ingresar a cualquier servidor de Halo CE.";
+        msgInfo.style.color = "#4CAF50";
+      } catch {
+        msgInfo.textContent = "Error al conectar";
+        msgInfo.style.color = "red";
+      }
+    });
+
+    btnDesconectar.addEventListener("click", async () => {
+      const data = JSON.parse(localStorage.getItem("usuarioData"));
+      try {
+        await fetch("/desconectar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nick: data.nick })
+        });
+        msgInfo.textContent = "Te has desconectado.";
+        msgInfo.style.color = "#FF5722";
+      } catch {
+        msgInfo.textContent = "Error al desconectar";
+        msgInfo.style.color = "red";
+      }
+    });
+  </script>
+</body>
+</html>
