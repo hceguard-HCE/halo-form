@@ -20,7 +20,7 @@
     <h2>Registro Halo CE</h2>
 
     <form id="registroForm">
-      <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo" />
+      <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" />
       <input type="text" id="pais" placeholder="País" required />
       <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required />
       <select id="prefJuego" required>
@@ -29,17 +29,24 @@
         <option value="Casual / recreativo">Casual / recreativo</option>
       </select>
       <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
-      <button type="submit">Crear</button>
-      <small>12–48 horas para revisar, salvo recomendación de un administrador.</small>
+      <button type="submit">Crear registro</button>
+      <small>Tu GUID será tu clave de acceso. Guárdalo bien.</small>
     </form>
 
     <div id="estadoDiv" style="display:none;">
       <h3>Tu Información</h3>
       <pre id="infoUsuario"></pre>
+      <p><strong>GUID:</strong> <span id="guidUsuario"></span></p>
       <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
       <button id="btnConectar">Conectar</button>
       <button id="btnDesconectar">Desconectar</button>
-      <p id="msgInfo" style="font-size: 14px; color: #4CAF50;"></p>
+      <p id="msgInfo" style="font-size: 14px;"></p>
+    </div>
+
+    <div id="reconectarDiv">
+      <h3>¿Ya tienes un GUID?</h3>
+      <input type="text" id="inputGuid" placeholder="Ingresa tu GUID" />
+      <button id="btnRecuperar">Recuperar registro</button>
     </div>
   </div>
 
@@ -48,30 +55,36 @@
     const estadoDiv = document.getElementById("estadoDiv");
     const infoUsuario = document.getElementById("infoUsuario");
     const estadoUsuario = document.getElementById("estadoUsuario");
+    const guidUsuario = document.getElementById("guidUsuario");
     const btnConectar = document.getElementById("btnConectar");
     const btnDesconectar = document.getElementById("btnDesconectar");
     const msgInfo = document.getElementById("msgInfo");
+    const reconectarDiv = document.getElementById("reconectarDiv");
+    const inputGuid = document.getElementById("inputGuid");
+    const btnRecuperar = document.getElementById("btnRecuperar");
 
     function mostrarDatos(data) {
       infoUsuario.textContent =
         `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+      guidUsuario.textContent = data.guid;
       estadoUsuario.textContent = data.aprobado ? "Aprobado" : "Pendiente";
     }
 
-    async function checkRegistro(nick) {
-      const res = await fetch(`/check/${encodeURIComponent(nick)}`);
+    async function checkRegistro(guid) {
+      const res = await fetch(`/check/${guid}`);
       const data = await res.json();
-      return data.aprobado;
+      return data;
     }
 
     if (localStorage.getItem("usuarioData")) {
       const data = JSON.parse(localStorage.getItem("usuarioData"));
       form.style.display = "none";
+      reconectarDiv.style.display = "none";
       estadoDiv.style.display = "block";
       mostrarDatos(data);
 
-      checkRegistro(data.nick).then(aprobado => {
-        if (aprobado && !data.aprobado) {
+      checkRegistro(data.guid).then(result => {
+        if (result.aprobado && !data.aprobado) {
           data.aprobado = true;
           localStorage.setItem("usuarioData", JSON.stringify(data));
           estadoUsuario.textContent = "Aprobado";
@@ -97,18 +110,35 @@
         });
         const json = await res.json();
         if (json.ok) {
-          localStorage.setItem("usuarioData", JSON.stringify({ ...data, aprobado: false }));
+          const fullData = { ...data, guid: json.guid, aprobado: false };
+          localStorage.setItem("usuarioData", JSON.stringify(fullData));
           form.style.display = "none";
+          reconectarDiv.style.display = "none";
           estadoDiv.style.display = "block";
-          mostrarDatos({ ...data, aprobado: false });
+          mostrarDatos(fullData);
         } else {
-          msgInfo.textContent = json.error || "Error al enviar el registro";
+          msgInfo.textContent = json.error || "Error al registrar";
           msgInfo.style.color = "red";
         }
       } catch (err) {
-        console.error(err);
-        msgInfo.textContent = "Error de conexión con el servidor";
+        msgInfo.textContent = "Error de conexión";
         msgInfo.style.color = "red";
+      }
+    });
+
+    btnRecuperar.addEventListener("click", async () => {
+      const guid = inputGuid.value.trim();
+      const result = await checkRegistro(guid);
+      if (result.nick) {
+        const data = { guid, nick: result.nick, aprobado: result.aprobado };
+        localStorage.setItem("usuarioData", JSON.stringify(data));
+        form.style.display = "none";
+        reconectarDiv.style.display = "none";
+        estadoDiv.style.display = "block";
+        mostrarDatos(data);
+      } else {
+        msgInfo.textContent = "GUID no encontrado";
+        msgInfo.style.color = "orange";
       }
     });
 
@@ -123,9 +153,9 @@
         await fetch("/conectar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nick: data.nick, prefJuego: data.prefJuego })
+          body: JSON.stringify({ guid: data.guid })
         });
-        msgInfo.textContent = "Conectado, ya puedes ingresar a cualquier servidor de Halo CE.";
+        msgInfo.textContent = "Conectado correctamente.";
         msgInfo.style.color = "#4CAF50";
       } catch {
         msgInfo.textContent = "Error al conectar";
@@ -139,9 +169,9 @@
         await fetch("/desconectar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nick: data.nick })
+          body: JSON.stringify({ guid: data.guid })
         });
-        msgInfo.textContent = "Te has desconectado.";
+        msgInfo.textContent = "Desconectado correctamente.";
         msgInfo.style.color = "#FF5722";
       } catch {
         msgInfo.textContent = "Error al desconectar";
