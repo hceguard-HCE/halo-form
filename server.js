@@ -21,16 +21,16 @@ const client = new Client({
   ],
 });
 
-const CANAL_REGISTROS = process.env.CANAL_REGISTROS;
-const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES;
-const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;
+const CANAL_REGISTROS = process.env.CANAL_REGISTROS;       // Canal donde llegan los registros
+const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES; // Canal para approve/deny
+const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;     // Canal de conexión/desconexión
 
 // Archivo para persistencia opcional
 const FILE = path.join(process.cwd(), "disk", "registros.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
 
-// Cargar registros
+// Cargar y guardar registros
 function loadRegistros() {
   try {
     const data = fs.readFileSync(FILE, "utf8");
@@ -39,17 +39,23 @@ function loadRegistros() {
     return {};
   }
 }
-
-// Guardar registros
 function saveRegistros(data) {
   fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
-// En memoria
 let registros = loadRegistros();
+let botReady = false;
 
-// Endpoint para recibir registros desde el frontend
+// Esperar que el bot esté listo
+client.on("ready", () => {
+  console.log(`Bot listo como ${client.user.tag}`);
+  botReady = true;
+});
+
+// Endpoint para recibir registros del frontend
 app.post("/registro", async (req, res) => {
+  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
+
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
   if (!deviceID) return res.status(400).json({ ok: false, error: "No hay deviceID" });
 
@@ -57,18 +63,18 @@ app.post("/registro", async (req, res) => {
   registros[deviceID] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
   saveRegistros(registros);
 
-  // Enviar al canal de registros
   try {
     const canal = await client.channels.fetch(CANAL_REGISTROS);
-    if (canal) {
-      canal.send(`📋 Nuevo registro
+    if (!canal) return res.status(500).json({ ok: false, error: "Canal no encontrado" });
+
+    await canal.send(`📋 Nuevo registro
 Nick: ${nick}
 País: ${pais}
 Servidores: ${servidores}
 Preferencia: ${prefJuego}
 Motivo: ${motivo}
 DeviceID: ${deviceID}`);
-    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -85,6 +91,7 @@ app.get("/check/:id", (req, res) => {
 
 // Endpoint para notificar conexión
 app.post("/conectar", async (req, res) => {
+  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
   const { nick, prefJuego } = req.body;
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
@@ -101,6 +108,7 @@ app.post("/conectar", async (req, res) => {
 
 // Endpoint para notificar desconexión
 app.post("/desconectar", async (req, res) => {
+  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
   const { nick } = req.body;
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
