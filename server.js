@@ -6,6 +6,10 @@ import { Client, GatewayIntentBits } from "discord.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+
+// Servir archivos estáticos
+app.use(express.static(path.join(process.cwd(), "public")));
+
 // Carpeta y archivo para aprobados
 const FILE = path.join(process.cwd(), "disk", "aprobados.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
@@ -103,3 +107,4 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
