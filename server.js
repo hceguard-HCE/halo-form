@@ -1,150 +1,118 @@
 import express from "express";
-import fs from "fs";
 import path from "path";
-import { Client, GatewayIntentBits } from "discord.js";
 import cors from "cors";
-import crypto from "crypto";
+import { Client, GatewayIntentBits } from "discord.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const {
-  DISCORD_BOT_TOKEN,
-  CANAL_REGISTROS,
-  CANAL_APROBACIONES,
-  CANAL_CONEXIONES
-} = process.env;
-
-if (!DISCORD_BOT_TOKEN || !CANAL_REGISTROS || !CANAL_APROBACIONES || !CANAL_CONEXIONES) {
-  console.error("❌ Faltan variables de entorno necesarias.");
-  process.exit(1);
-}
-
+// Middlewares
 app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(process.cwd(), "public")));
 
+// Discord
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-const FILE = path.join(process.cwd(), "disk", "registros.json");
-if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
-if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
+const CANAL_REGISTROS = process.env.CANAL_REGISTROS;       // donde llegan nuevos registros
+const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES; // donde se hace approve/deny
+const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;     // canal de conexión/desconexión
 
-function loadRegistros() {
-  try {
-    const data = fs.readFileSync(FILE, "utf8");
-    return data ? JSON.parse(data) : {};
-  } catch {
-    return {};
-  }
-}
-function saveRegistros(data) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
+// Memoria de registros
+const registros = {}; // { deviceID: { nick, pais, servidores, prefJuego, motivo, aprobado } }
 
-let registros = loadRegistros();
-let botReady = false;
-
-client.on("ready", () => {
-  console.log(`🤖 Bot listo como ${client.user.tag}`);
-  botReady = true;
-});
-
+// Endpoint para recibir registro desde frontend
 app.post("/registro", async (req, res) => {
-  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
+  const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
+  if (!deviceID) return res.status(400).json({ ok: false, error: "No hay deviceID" });
 
-  const { nick, pais, servidores, prefJuego, motivo } = req.body;
-  if (!nick || !/^[a-zA-Z0-9_]+$/.test(nick)) return res.status(400).json({ ok: false, error: "Nick inválido" });
-
-  const guid = crypto.randomUUID();
-  registros[guid] = { guid, nick, pais, servidores, prefJuego, motivo, aprobado: false };
-  saveRegistros(registros);
+  registros[deviceID] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
 
   try {
     const canal = await client.channels.fetch(CANAL_REGISTROS);
-    await canal.send(`📋 Nuevo registro
+    if (canal) {
+      canal.send(`📋 Nuevo registro
 Nick: ${nick}
 País: ${pais}
 Servidores: ${servidores}
 Preferencia: ${prefJuego}
 Motivo: ${motivo}
-GUID: ${guid}`);
-    res.json({ ok: true, guid });
+DeviceID: ${deviceID}
+Estado: ❌ Pendiente`);
+    }
+    res.json({ ok: true });
   } catch (err) {
-    console.error("Error al enviar registro:", err);
+    console.error(err);
     res.status(500).json({ ok: false });
   }
 });
 
-app.get("/check/:guid", (req, res) => {
-  const guid = req.params.guid;
-  const registro = registros[guid];
-  if (!registro) return res.status(404).json({ error: "GUID no encontrado" });
-  res.json({ aprobado: registro.aprobado, nick: registro.nick });
+// Endpoint para verificar si está aprobado
+app.get("/check/:id", (req, res) => {
+  const id = req.params.id;
+  const aprobado = registros[id]?.aprobado || false;
+  res.json({ aprobado });
 });
 
+// Endpoint conectar
 app.post("/conectar", async (req, res) => {
-  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
-  const { guid } = req.body;
-  const registro = registros[guid];
-  if (!registro || !registro.aprobado) return res.status(403).json({ ok: false, error: "No aprobado" });
+  const { nick, deviceID, prefJuego } = req.body;
+  if (!registros[deviceID] || !registros[deviceID].aprobado)
+    return res.status(403).json({ ok: false, error: "No aprobado" });
 
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    await canal.send(`✅ ${registro.nick} se ha conectado.`);
+    if (canal) {
+      const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego;
+      canal.send(`**${nick}** (${pref}) se ha conectado.`);
+    }
     res.json({ ok: true });
   } catch (err) {
-    console.error("Error al conectar:", err);
+    console.error(err);
     res.status(500).json({ ok: false });
   }
 });
 
+// Endpoint desconectar
 app.post("/desconectar", async (req, res) => {
-  if (!botReady) return res.status(503).json({ ok: false, error: "Bot no listo" });
-  const { guid } = req.body;
-  const registro = registros[guid];
-  if (!registro) return res.status(404).json({ ok: false });
-
+  const { nick } = req.body;
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
-    await canal.send(`🔒 ${registro.nick} se ha desconectado.`);
+    if (canal) canal.send(`**${nick}** se ha desconectado.`);
     res.json({ ok: true });
   } catch (err) {
-    console.error("Error al desconectar:", err);
+    console.error(err);
     res.status(500).json({ ok: false });
   }
 });
 
+// Bot escucha canal de aprobaciones
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
-
-  const [cmd, guid] = msg.content.trim().split(" ");
-  const registro = registros[guid];
-  if (!registro) return;
+  const [cmd, deviceID] = msg.content.split(" ");
+  if (!deviceID || !registros[deviceID]) return;
 
   if (cmd === "approve") {
-    registro.aprobado = true;
-    saveRegistros(registros);
-    msg.reply(`✅ El registro de ${registro.nick} fue aprobado.`);
+    registros[deviceID].aprobado = true;
+    msg.reply(`✅ El registro de ${registros[deviceID].nick} fue aprobado.`);
+    // Actualizar mensaje en #registros si quieres
   }
-
   if (cmd === "deny") {
-    registro.aprobado = false;
-    saveRegistros(registros);
-    msg.reply(`❌ El registro de ${registro.nick} fue rechazado.`);
+    registros[deviceID].aprobado = false;
+    msg.reply(`❌ El registro de ${registros[deviceID].nick} fue rechazado.`);
+    // Actualizar mensaje en #registros si quieres
   }
 });
 
-client.login(DISCORD_BOT_TOKEN);
+// Login bot
+client.login(process.env.DISCORD_BOT_TOKEN);
 
+// Servir frontend
 app.get("/", (req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "index.html"));
 });
 
-app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`));
+// Iniciar servidor
+app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
