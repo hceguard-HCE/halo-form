@@ -2,72 +2,43 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro Halo CE</title>
 <style>
-  body { display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial; background: #1b1b1b; color: #fff; }
-  #container { background: #2c2c2c; padding: 30px; border-radius: 10px; width: 350px; text-align: center; }
-  input, select, textarea, button { width: 100%; margin: 8px 0; padding: 8px; border-radius: 5px; border: none; }
-  textarea { resize: none; height: 60px; }
-  button { background: #4CAF50; color: white; cursor: pointer; }
-  button:disabled { background: grey; }
-  small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
+body { display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; }
+#formulario { display:flex; flex-direction:column; width:300px; }
+#estadoDiv { display:none; margin-top:20px; }
+button { margin-top:10px; }
 </style>
 </head>
 <body>
-<div id="container">
-  <h2>Registro Halo CE</h2>
-  
-  <form id="registroForm">
-    <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo">
-    <input type="text" id="pais" placeholder="País" required>
-    <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required>
-    <select id="prefJuego" required>
-      <option value="">¿Cómo prefieres jugar Halo CE?</option>
-      <option value="Pro / competitivo">Pro / competitivo</option>
-      <option value="Casual / recreativo">Casual / recreativo</option>
-    </select>
-    <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
-    <button type="submit">Crear</button>
-    <small>12–48 horas para revisar, salvo recomendación de un administrador.</small>
-  </form>
+<div id="formulario">
+  <input id="nick" placeholder="Nick Halo CE" />
+  <input id="pais" placeholder="País" />
+  <input id="servidores" placeholder="¿En qué servidores juegas?" />
+  <input id="prefJuego" placeholder="Preferencia (Pro / Casual)" />
+  <textarea id="motivo" placeholder="Motivo para unirse"></textarea>
+  <button id="crearBtn">Crear</button>
+  <p>(12–48 horas para ser aprobado salvo recomendación)</p>
+</div>
 
-  <div id="estadoDiv" style="display:none;">
-    <h3>Tu Información</h3>
-    <p id="infoUsuario"></p>
-    <p>Estado: <span id="estadoUsuario">Activo</span></p>
-    <button id="btnConectar">Conectar</button>
-  </div>
+<div id="estadoDiv">
+  <pre id="infoUsuario"></pre>
+  Estado: <span id="estadoUsuario">Pendiente</span>
+  <button id="btnConectar" disabled>Conectar</button>
 </div>
 
 <script>
-const form = document.getElementById("registroForm");
+const form = document.getElementById("formulario");
 const estadoDiv = document.getElementById("estadoDiv");
 const infoUsuario = document.getElementById("infoUsuario");
 const btnConectar = document.getElementById("btnConectar");
 
-// Device ID persistente en localStorage
-function getDeviceID() {
-  if(!localStorage.getItem("deviceID")) {
-    const id = crypto.randomUUID();
-    localStorage.setItem("deviceID", id);
-  }
-  return localStorage.getItem("deviceID");
-}
+function generarDeviceID(){ return 'xxxx-xxxx-xxxx'.replace(/[x]/g, ()=>Math.floor(Math.random()*10)); }
 
-const deviceID = getDeviceID();
+async function enviarRegistro(){
+  const deviceID = localStorage.getItem("deviceID") || generarDeviceID();
+  localStorage.setItem("deviceID", deviceID);
 
-// Revisar si ya se registró
-if(localStorage.getItem("usuarioData")) {
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  form.style.display = "none";
-  estadoDiv.style.display = "block";
-  infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-}
-
-// Enviar formulario al backend seguro
-form.addEventListener("submit", async (e)=>{
-  e.preventDefault();
   const data = {
     nick: document.getElementById("nick").value,
     pais: document.getElementById("pais").value,
@@ -76,33 +47,49 @@ form.addEventListener("submit", async (e)=>{
     motivo: document.getElementById("motivo").value,
     deviceID
   };
+  localStorage.setItem("usuarioData", JSON.stringify(data));
 
-  try {
-    const res = await fetch("/registro", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
-    const json = await res.json();
-    if(json.ok){
-      // Guardar localmente
-      localStorage.setItem("usuarioData", JSON.stringify(data));
-      form.style.display = "none";
-      estadoDiv.style.display = "block";
-      infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-    } else {
-      alert("Error al enviar el registro");
-    }
-  } catch(err){
-    console.error(err);
-    alert("Error de conexión con el servidor");
+  // Enviar a webhook de Discord
+  const WEBHOOK_URL = "TU_WEBHOOK_URL";
+  await fetch(WEBHOOK_URL, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      content: `Nuevo registro:\nNick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}\nDeviceID: ${deviceID}`
+    })
+  });
+
+  alert("Registro enviado. Espera aprobación.");
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
+}
+
+document.getElementById("crearBtn").onclick = enviarRegistro;
+
+async function checkEstado(){
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  if(!data) return;
+
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
+
+  const res = await fetch(`https://TU_BOT_API/check/${data.deviceID}`);
+  const json = await res.json();
+
+  if(json.aprobado){
+    infoUsuario.textContent = `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+    document.getElementById("estadoUsuario").textContent = "Activo";
+    btnConectar.disabled = false;
+  } else {
+    infoUsuario.textContent = "Tu registro está pendiente de aprobación.";
+    document.getElementById("estadoUsuario").textContent = "Pendiente";
+    btnConectar.disabled = true;
   }
-});
+}
 
-// Botón conectar
-btnConectar.addEventListener("click", ()=>{
-  alert("Conectando a Halo CE con tu cuenta...");
-});
+// Revisar cada 10s si el usuario fue aprobado
+setInterval(checkEstado, 10000);
+checkEstado();
 </script>
 </body>
 </html>
