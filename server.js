@@ -1,21 +1,23 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
+import cors from "cors";
 import { Client, GatewayIntentBits } from "discord.js";
 
+// --- Configuración básica ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
-// Servir archivos estáticos
+// Middlewares
+app.use(express.json());
+app.use(cors());
 app.use(express.static(path.join(process.cwd(), "public")));
 
-// Carpeta y archivo para aprobados
+// --- Archivo para aprobados ---
 const FILE = path.join(process.cwd(), "disk", "aprobados.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
 
-// Funciones para leer/escribir aprobados
 function getAprobados() {
   try {
     const data = fs.readFileSync(FILE, "utf8");
@@ -29,19 +31,13 @@ function saveAprobados(data) {
   fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
-// Middlewares
-app.use(express.json());
-import cors from "cors";
-app.use(cors());
-
-// Endpoint para revisar estado
+// --- Endpoints ---
 app.get("/check/:id", (req, res) => {
   const aprobados = getAprobados();
   const id = req.params.id;
   res.json({ aprobado: !!aprobados[id] });
 });
 
-// Endpoint para notificar conexión
 app.post("/conectar", async (req, res) => {
   const { nick, prefJuego } = req.body;
   try {
@@ -57,7 +53,6 @@ app.post("/conectar", async (req, res) => {
   }
 });
 
-// Endpoint para notificar desconexión
 app.post("/desconectar", async (req, res) => {
   const { nick } = req.body;
   try {
@@ -71,16 +66,17 @@ app.post("/desconectar", async (req, res) => {
 });
 
 // Servir frontend
-app.use(express.static(path.join(process.cwd(), "public")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "index.html"));
+});
 
-// Discord Bot
+// --- Discord Bot ---
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES;
+const CANAL_APROBACIONES = process.env.CANAL_APROBACIONES;
 
-// Bot maneja aprobaciones
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
 
@@ -102,12 +98,8 @@ client.on("messageCreate", (msg) => {
   }
 });
 
-// Login
+// Login del bot
 client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Iniciar servidor
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "public", "index.html"));
-});
