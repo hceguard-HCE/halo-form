@@ -3,9 +3,9 @@ import fs from "fs";
 import path from "path";
 import { Client, GatewayIntentBits } from "discord.js";
 import cors from "cors";
-import dotenv from "dotenv";
 
-dotenv.config(); // Cargar variables de entorno
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -162,3 +162,4 @@ app.get("/", (req, res) => {
 
 // Iniciar servidor
 app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`));
+
