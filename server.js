@@ -49,6 +49,21 @@ app.post("/conectar", express.json(), async (req, res) => {
   }
 });
 
+// Endpoint para notificar conexión
+app.post("/desconectar", express.json(), async (req, res) => {
+  const { nick } = req.body;
+  try {
+    const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
+    if (canal) {
+      canal.send(`🔴 **${nick}** se ha desconectado.`);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false });
+  }
+});
+
 // Servir front
 app.use(express.static(path.join(process.cwd(), "public")));
 
@@ -85,4 +100,5 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Start server
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
 
