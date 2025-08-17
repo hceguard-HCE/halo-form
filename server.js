@@ -55,7 +55,7 @@ app.post("/desconectar", express.json(), async (req, res) => {
   try {
     const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
     if (canal) {
-      canal.send(`🔴 **${nick}** se ha desconectado.`);
+      canal.send(`**${nick}** se ha desconectado.`);
     }
     res.json({ ok: true });
   } catch (err) {
@@ -100,6 +100,7 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Start server
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
 
 
 
