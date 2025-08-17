@@ -70,9 +70,20 @@
       infoUsuario.textContent =
         `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
       codigoUsuario.textContent = data.codigo;
-      estadoUsuario.textContent = data.aprobado ? "Aprobado" : "Pendiente";
-      btnConectar.style.display = data.aprobado ? "inline-block" : "none";
-      btnDesconectar.style.display = data.aprobado ? "inline-block" : "none";
+
+      if (data.aprobado === true) {
+        estadoUsuario.textContent = "Aprobado";
+        btnConectar.style.display = "inline-block";
+        btnDesconectar.style.display = "inline-block";
+      } else if (data.aprobado === "rechazado") {
+        estadoUsuario.textContent = "Rechazado";
+        btnConectar.style.display = "none";
+        btnDesconectar.style.display = "none";
+      } else {
+        estadoUsuario.textContent = "Pendiente";
+        btnConectar.style.display = "none";
+        btnDesconectar.style.display = "none";
+      }
     }
 
     async function checkRegistro(codigo) {
