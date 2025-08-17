@@ -2,112 +2,47 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Registro de Usuario</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 500px;
-      margin: 50px auto;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    label {
-      display: block;
-      margin-top: 15px;
-    }
-    input, select, textarea, button {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      box-sizing: border-box;
-    }
-    button {
-      margin-top: 20px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    .message {
-      margin-top: 15px;
-      padding: 10px;
-      border-radius: 5px;
-    }
-    .success { background-color: #d4edda; color: #155724; }
-    .error { background-color: #f8d7da; color: #721c24; }
-  </style>
+  <title>Halo CE - Registro</title>
 </head>
 <body>
-  <h2>Formulario de Registro</h2>
-  <form id="registroForm">
-    <label for="codigo">Código de Invitación</label>
-    <input type="text" id="codigo" name="codigo" required>
+  <h2>Registro con Código</h2>
+  <input type="text" id="codigo" placeholder="INVITE-CODE: HCE-1234-ABCD">
+  <input type="text" id="nick" placeholder="Tu nick">
+  <button onclick="registrar()">Registrar</button>
+  <p id="resultado"></p>
 
-    <label for="nick">Nick</label>
-    <input type="text" id="nick" name="nick" required pattern="[a-zA-Z0-9_]+">
+  <hr>
 
-    <label for="pais">País</label>
-    <input type="text" id="pais" name="pais" required>
-
-    <label for="servidores">Servidores</label>
-    <input type="text" id="servidores" name="servidores" required>
-
-    <label for="prefJuego">Preferencia de Juego</label>
-    <input type="text" id="prefJuego" name="prefJuego" required>
-
-    <label for="motivo">Motivo</label>
-    <textarea id="motivo" name="motivo" rows="3" required></textarea>
-
-    <button type="submit">Enviar Registro</button>
-  </form>
-
-  <div id="message" class="message" style="display:none;"></div>
+  <button onclick="conectar()">Conectar</button>
+  <button onclick="desconectar()">Desconectar</button>
+  <p id="estado"></p>
 
   <script>
-    const form = document.getElementById('registroForm');
-    const message = document.getElementById('message');
+    async function registrar() {
+      const codigo = document.getElementById("codigo").value;
+      const nick = document.getElementById("nick").value;
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = {
-        codigo: form.codigo.value.trim(),
-        nick: form.nick.value.trim(),
-        pais: form.pais.value.trim(),
-        servidores: form.servidores.value.trim(),
-        prefJuego: form.prefJuego.value.trim(),
-        motivo: form.motivo.value.trim()
-      };
+      const res = await fetch("/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo, nick })
+      });
 
-      try {
-        const res = await fetch('/registro', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        const result = await res.json();
+      const data = await res.json();
+      document.getElementById("resultado").innerText = data.message;
+    }
 
-        if (result.ok) {
-          message.textContent = '✅ Registro enviado correctamente.';
-          message.className = 'message success';
-          message.style.display = 'block';
-          form.reset();
-        } else {
-          message.textContent = '❌ Error: ' + (result.error || 'Desconocido');
-          message.className = 'message error';
-          message.style.display = 'block';
-        }
-      } catch (err) {
-        message.textContent = '❌ Error al enviar registro.';
-        message.className = 'message error';
-        message.style.display = 'block';
-      }
-    });
+    async function conectar() {
+      const res = await fetch("/discord/connect", { method: "POST" });
+      const data = await res.json();
+      document.getElementById("estado").innerText = data.message;
+    }
+
+    async function desconectar() {
+      const res = await fetch("/discord/disconnect", { method: "POST" });
+      const data = await res.json();
+      document.getElementById("estado").innerText = data.message;
+    }
   </script>
 </body>
 </html>
