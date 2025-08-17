@@ -1,268 +1,112 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registro Halo CE</title>
-
-  <script>
-    const isMobile = /iPhone|Android|iPad|Mobile/i.test(navigator.userAgent);
-    window.addEventListener("DOMContentLoaded", () => {
-      if (!isMobile) {
-        document.body.classList.add("bloqueado");
-      }
-    });
-  </script>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Usuario</title>
   <style>
     body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
       font-family: Arial, sans-serif;
-      background: #1b1b1b;
-      color: #fff;
-      margin: 0;
-    }
-
-    #container {
-      background: #2c2c2c;
-      padding: 30px;
+      max-width: 500px;
+      margin: 50px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
       border-radius: 10px;
-      width: 350px;
-      text-align: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-
+    label {
+      display: block;
+      margin-top: 15px;
+    }
     input, select, textarea, button {
       width: 100%;
-      margin: 8px 0;
       padding: 8px;
-      border-radius: 5px;
-      border: none;
+      margin-top: 5px;
+      box-sizing: border-box;
     }
-
-    textarea {
-      resize: none;
-      height: 60px;
-    }
-
     button {
-      background: #4CAF50;
+      margin-top: 20px;
+      background-color: #4CAF50;
       color: white;
+      border: none;
       cursor: pointer;
     }
-
-    button:disabled {
-      background: grey;
+    button:hover {
+      background-color: #45a049;
     }
-
-    small {
-      font-size: 12px;
-      color: #ccc;
-      display: block;
-      margin-top: 10px;
+    .message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 5px;
     }
-
-    pre {
-      text-align: left;
-      white-space: pre-wrap;
-    }
-
-    #codigoAccess {
-      margin-top: 20px;
-    }
-
-    body.bloqueado #container {
-      display: none;
-    }
-
-    body.bloqueado::before {
-      content: "📵 Esta página solo está disponible en dispositivos móviles.\A Por favor accede desde tu teléfono.";
-      white-space: pre-wrap;
-      font-size: 18px;
-      display: block;
-      text-align: center;
-      padding: 40px;
-      font-family: sans-serif;
-      color: #fff;
-    }
+    .success { background-color: #d4edda; color: #155724; }
+    .error { background-color: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
-  <div id="container">
-    <h2>Registro Halo CE</h2>
+  <h2>Formulario de Registro</h2>
+  <form id="registroForm">
+    <label for="codigo">Código de Invitación</label>
+    <input type="text" id="codigo" name="codigo" required>
 
-    <form id="registroForm">
-      <input type="text" id="codigo" placeholder="Código de invitación" required />
-      <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" />
-      <input type="text" id="pais" placeholder="País" required />
-      <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required />
-      <select id="prefJuego" required>
-        <option value="">¿Cómo prefieres jugar Halo CE?</option>
-        <option value="Pro / competitivo">Pro / competitivo</option>
-        <option value="Casual / recreativo">Casual / recreativo</option>
-      </select>
-      <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
-      <button type="submit">Crear registro</button>
-      <small>Tu código será tu acceso permanente. Guárdalo bien.</small>
-      <small>Soporte: <a href="mailto:hceguard@correo.com">hceguard@correo.com</a></small>
-    </form>
+    <label for="nick">Nick</label>
+    <input type="text" id="nick" name="nick" required pattern="[a-zA-Z0-9_]+">
 
-    <div id="codigoAccess">
-      <h3>¿Ya tienes tu código?</h3>
-      <input type="text" id="inputCodigo" placeholder="Ingresa tu código" />
-      <button id="btnAcceder">Acceder</button>
-    </div>
+    <label for="pais">País</label>
+    <input type="text" id="pais" name="pais" required>
 
-    <div id="estadoDiv" style="display:none;">
-      <h3>Tu Información</h3>
-      <pre id="infoUsuario"></pre>
-      <p><strong>Código:</strong> <span id="codigoUsuario"></span></p>
-      <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
-      <button id="btnConectar" style="display:none;">Conectar</button>
-      <button id="btnDesconectar" style="display:none;">Desconectar</button>
-      <p id="msgInfo" style="font-size: 14px;"></p>
-    </div>
-  </div>
+    <label for="servidores">Servidores</label>
+    <input type="text" id="servidores" name="servidores" required>
+
+    <label for="prefJuego">Preferencia de Juego</label>
+    <input type="text" id="prefJuego" name="prefJuego" required>
+
+    <label for="motivo">Motivo</label>
+    <textarea id="motivo" name="motivo" rows="3" required></textarea>
+
+    <button type="submit">Enviar Registro</button>
+  </form>
+
+  <div id="message" class="message" style="display:none;"></div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const form = document.getElementById("registroForm");
-      const estadoDiv = document.getElementById("estadoDiv");
-      const infoUsuario = document.getElementById("infoUsuario");
-      const estadoUsuario = document.getElementById("estadoUsuario");
-      const codigoUsuario = document.getElementById("codigoUsuario");
-      const btnConectar = document.getElementById("btnConectar");
-      const btnDesconectar = document.getElementById("btnDesconectar");
-      const msgInfo = document.getElementById("msgInfo");
-      const codigoAccess = document.getElementById("codigoAccess");
-      const inputCodigo = document.getElementById("inputCodigo");
-      const btnAcceder = document.getElementById("btnAcceder");
+    const form = document.getElementById('registroForm');
+    const message = document.getElementById('message');
 
-      function mostrarDatos(data) {
-        infoUsuario.textContent =
-          `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
-        codigoUsuario.textContent = data.codigo;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        codigo: form.codigo.value.trim(),
+        nick: form.nick.value.trim(),
+        pais: form.pais.value.trim(),
+        servidores: form.servidores.value.trim(),
+        prefJuego: form.prefJuego.value.trim(),
+        motivo: form.motivo.value.trim()
+      };
 
-        if (data.aprobado === true) {
-          estadoUsuario.textContent = "Aprobado";
-          btnConectar.style.display = "inline-block";
-          btnDesconectar.style.display = "inline-block";
-        } else if (data.aprobado === "rechazado") {
-          estadoUsuario.textContent = "Rechazado";
-          btnConectar.style.display = "none";
-          btnDesconectar.style.display = "none";
-        } else {
-          estadoUsuario.textContent = "Pendiente";
-          btnConectar.style.display = "none";
-          btnDesconectar.style.display = "none";
-        }
-      }
-
-      async function checkRegistro(codigo) {
-        const res = await fetch(`/check/${codigo}`);
-        const data = await res.json();
-        return data;
-      }
-
-      if (localStorage.getItem("usuarioData")) {
-        const data = JSON.parse(localStorage.getItem("usuarioData"));
-        form.style.display = "none";
-        codigoAccess.style.display = "none";
-        estadoDiv.style.display = "block";
-        checkRegistro(data.codigo).then(result => {
-          const fullData = { ...data, aprobado: result.aprobado };
-          localStorage.setItem("usuarioData", JSON.stringify(fullData));
-          mostrarDatos(fullData);
+      try {
+        const res = await fetch('/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
         });
-      }
+        const result = await res.json();
 
-      form.addEventListener("submit", async e => {
-        e.preventDefault();
-        msgInfo.textContent = "Enviando registro...";
-        msgInfo.style.color = "#ccc";
-
-        const data = {
-          codigo: document.getElementById("codigo").value.trim(),
-          nick: document.getElementById("nick").value,
-          pais: document.getElementById("pais").value,
-          servidores: document.getElementById("servidores").value,
-          prefJuego: document.getElementById("prefJuego").value,
-          motivo: document.getElementById("motivo").value
-        };
-
-        try {
-          const res = await fetch("/registro", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
-          });
-          const json = await res.json();
-          if (json.ok) {
-            const fullData = { ...data, aprobado: false };
-            localStorage.setItem("usuarioData", JSON.stringify(fullData));
-            form.style.display = "none";
-            codigoAccess.style.display = "none";
-            estadoDiv.style.display = "block";
-            mostrarDatos(fullData);
-          } else {
-            msgInfo.textContent = json.error || "Error al registrar";
-            msgInfo.style.color = "red";
-          }
-        } catch (err) {
-          msgInfo.textContent = "Error de conexión";
-          msgInfo.style.color = "red";
-        }
-      });
-
-      btnAcceder.addEventListener("click", async () => {
-        const codigo = inputCodigo.value.trim();
-        const result = await checkRegistro(codigo);
-        if (result.nick) {
-          const data = { codigo, ...result };
-          localStorage.setItem("usuarioData", JSON.stringify(data));
-          form.style.display = "none";
-          codigoAccess.style.display = "none";
-          estadoDiv.style.display = "block";
-          mostrarDatos(data);
+        if (result.ok) {
+          message.textContent = '✅ Registro enviado correctamente.';
+          message.className = 'message success';
+          message.style.display = 'block';
+          form.reset();
         } else {
-          msgInfo.textContent = "Código inválido";
-          msgInfo.style.color = "orange";
+          message.textContent = '❌ Error: ' + (result.error || 'Desconocido');
+          message.className = 'message error';
+          message.style.display = 'block';
         }
-      });
-
-      btnConectar.addEventListener("click", async () => {
-        const data = JSON.parse(localStorage.getItem("usuarioData"));
-        try {
-          await fetch("/conectar", {
-            method: "POST",
-            headers: { "Content-Type": headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ codigo: data.codigo })
-          });
-          msgInfo.textContent = "Conectado correctamente.";
-          msgInfo.style.color = "#4CAF50";
-        } catch {
-          msgInfo.textContent = "Error al conectar";
-          msgInfo.style.color = "red";
-        }
-      });
-
-      btnDesconectar.addEventListener("click", async () => {
-        const data = JSON.parse(localStorage.getItem("usuarioData"));
-        try {
-          await fetch("/desconectar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ codigo: data.codigo })
-          });
-          msgInfo.textContent = "Desconectado correctamente.";
-          msgInfo.style.color = "#FF5722";
-        } catch {
-          msgInfo.textContent = "Error al desconectar";
-          msgInfo.style.color = "red";
-        }
-      });
+      } catch (err) {
+        message.textContent = '❌ Error al enviar registro.';
+        message.className = 'message error';
+        message.style.display = 'block';
+      }
     });
   </script>
 </body>
