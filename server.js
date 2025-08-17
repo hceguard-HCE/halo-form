@@ -1,44 +1,77 @@
-import express from "express";
-import fetch from "node-fetch";
-import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import path from "path";
+import express from "express";
+import { Client, GatewayIntentBits } from "discord.js";
 
 const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+const PORT = process.env.PORT || 3000;
 
-const WEBHOOK_URL = process.env.WEBHOOK_URL;
+// Archivo donde se guardan los aprobados
+const filePath = path.join(process.cwd(), "aprobados.json");
 
-// Registro de formulario
-app.post("/registro", async (req, res) => {
-  const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
+// Asegurar que el archivo exista
+if (!fs.existsSync(filePath)) {
+  fs.writeFileSync(filePath, "{}");
+}
 
-  try {
-    await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({
-        content: `Nuevo registro:\nNick: ${nick}\nPaís: ${pais}\nServidores: ${servidores}\nPreferencia: ${prefJuego}\nMotivo: ${motivo}\nDeviceID: ${deviceID}`
-      })
-    });
-    res.json({ ok: true });
-  } catch(err) {
-    console.error(err);
-    res.json({ ok: false });
+// Leer aprobados
+function getAprobados() {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+// Guardar aprobados
+function saveAprobados(data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Express endpoint para revisar si está aprobado
+app.get("/check/:id", (req, res) => {
+  const aprobados = getAprobados();
+  const id = req.params.id;
+  res.json({ approved: !!aprobados[id] });
+});
+
+// Discord bot
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+});
+
+const CANAL_APROBACIONES = "1406465463591899267"; // 🔴 reemplaza con el ID real del canal
+
+client.on("messageCreate", (msg) => {
+  if (msg.channel.id !== CANAL_APROBACIONES) return;
+
+  // El mensaje debe tener formato: approve 12345
+  if (msg.content.startsWith("approve ")) {
+    const id = msg.content.split(" ")[1];
+    if (!id) {
+      msg.reply("Debes poner un ID después de `approve`.");
+      return;
+    }
+
+    const aprobados = getAprobados();
+    aprobados[id] = true;
+    saveAprobados(aprobados);
+
+    msg.reply(`✅ El ID **${id}** fue aprobado.`);
+  }
+
+  // También podrías tener un comando para quitar aprobación
+  if (msg.content.startsWith("deny ")) {
+    const id = msg.content.split(" ")[1];
+    if (!id) {
+      msg.reply("Debes poner un ID después de `deny`.");
+      return;
+    }
+
+    const aprobados = getAprobados();
+    delete aprobados[id];
+    saveAprobados(aprobados);
+
+    msg.reply(`❌ El ID **${id}** fue eliminado de aprobados.`);
   }
 });
 
-// Check si deviceID está aprobado
-app.get("/check/:deviceID", (req, res)=>{
-  const deviceID = req.params.deviceID;
-  let aprobados = {};
-  try { aprobados = JSON.parse(fs.readFileSync("aprobados.json")); } catch(err) {}
-  res.json({ aprobado: aprobados[deviceID] || false });
-});
+client.login("TOKEN_DEL_BOT");
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=>console.log("Servidor corriendo en puerto " + PORT));
+app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
