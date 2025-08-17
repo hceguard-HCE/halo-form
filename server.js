@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -6,12 +5,12 @@ import { Client, GatewayIntentBits } from "discord.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const FILE = path.join(process.cwd(), "aprobados.json");
 
-// Middleware
-app.use(express.json());
+// Directorio persistente en Render: "disk" es la carpeta que mantienes en Persisted Disk
+const FILE = path.join(process.cwd(), "disk", "aprobados.json");
 
-// Asegurar que exista el archivo de aprobados
+// Asegurar directorio y archivo
+if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
 
 // Funciones de lectura/escritura
@@ -28,14 +27,14 @@ function saveAprobados(data) {
   fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
-// Endpoint para chequear estado de un DeviceID
+// Endpoint para chequear estado
 app.get("/check/:id", (req, res) => {
   const aprobados = getAprobados();
   const id = req.params.id;
   res.json({ aprobado: !!aprobados[id] });
 });
 
-// Servir index.html desde la carpeta public
+// Servir front
 app.use(express.static(path.join(process.cwd(), "public")));
 
 // Discord Bot
@@ -43,7 +42,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-// REEMPLAZA este ID con el ID real del canal de aprobaciones
+// ID del canal de aprobaciones
 const CANAL_APROBACIONES = "1406465463591899267";
 
 client.on("messageCreate", (msg) => {
@@ -51,16 +50,14 @@ client.on("messageCreate", (msg) => {
 
   const [cmd, deviceID] = msg.content.split(" ");
 
-  if (cmd === "approve") {
-    if (!deviceID) return msg.reply("Debes poner un ID después de `approve`.");
+  if (cmd === "approve" && deviceID) {
     const aprobados = getAprobados();
     aprobados[deviceID] = true;
     saveAprobados(aprobados);
     msg.reply(`✅ El ID **${deviceID}** fue aprobado.`);
   }
 
-  if (cmd === "deny") {
-    if (!deviceID) return msg.reply("Debes poner un ID después de `deny`.");
+  if (cmd === "deny" && deviceID) {
     const aprobados = getAprobados();
     delete aprobados[deviceID];
     saveAprobados(aprobados);
@@ -68,8 +65,8 @@ client.on("messageCreate", (msg) => {
   }
 });
 
-// Login del bot con token
+// Login bot
 client.login(process.env.DISCORD_BOT_TOKEN);
 
-// Iniciar servidor
-app.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
+// Start server
+app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
