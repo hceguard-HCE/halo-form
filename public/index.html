@@ -13,6 +13,7 @@
     button:disabled { background: grey; }
     small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
     pre { text-align: left; white-space: pre-wrap; }
+    #guidAccess { margin-top: 20px; }
   </style>
 </head>
 <body>
@@ -30,23 +31,24 @@
       </select>
       <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
       <button type="submit">Crear registro</button>
-      <small>Tu GUID será tu clave de acceso. Guárdalo bien.</small>
+      <small>Tu GUID será tu token de acceso. Guárdalo bien.</small>
+      <small>Soporte: <a href="mailto:hceguard@correo.com">hceguard@correo.com</a></small>
     </form>
+
+    <div id="guidAccess">
+      <h3>¿Ya tienes tu token?</h3>
+      <input type="text" id="inputGuid" placeholder="Ingresa tu GUID" />
+      <button id="btnAcceder">Acceder</button>
+    </div>
 
     <div id="estadoDiv" style="display:none;">
       <h3>Tu Información</h3>
       <pre id="infoUsuario"></pre>
-      <p><strong>GUID:</strong> <span id="guidUsuario"></span></p>
+      <p><strong>Token:</strong> <span id="guidUsuario"></span></p>
       <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
-      <button id="btnConectar">Conectar</button>
-      <button id="btnDesconectar">Desconectar</button>
+      <button id="btnConectar" style="display:none;">Conectar</button>
+      <button id="btnDesconectar" style="display:none;">Desconectar</button>
       <p id="msgInfo" style="font-size: 14px;"></p>
-    </div>
-
-    <div id="reconectarDiv">
-      <h3>¿Ya tienes un GUID?</h3>
-      <input type="text" id="inputGuid" placeholder="Ingresa tu GUID" />
-      <button id="btnRecuperar">Recuperar registro</button>
     </div>
   </div>
 
@@ -59,15 +61,17 @@
     const btnConectar = document.getElementById("btnConectar");
     const btnDesconectar = document.getElementById("btnDesconectar");
     const msgInfo = document.getElementById("msgInfo");
-    const reconectarDiv = document.getElementById("reconectarDiv");
+    const guidAccess = document.getElementById("guidAccess");
     const inputGuid = document.getElementById("inputGuid");
-    const btnRecuperar = document.getElementById("btnRecuperar");
+    const btnAcceder = document.getElementById("btnAcceder");
 
     function mostrarDatos(data) {
       infoUsuario.textContent =
         `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
       guidUsuario.textContent = data.guid;
       estadoUsuario.textContent = data.aprobado ? "Aprobado" : "Pendiente";
+      btnConectar.style.display = data.aprobado ? "inline-block" : "none";
+      btnDesconectar.style.display = data.aprobado ? "inline-block" : "none";
     }
 
     async function checkRegistro(guid) {
@@ -79,16 +83,12 @@
     if (localStorage.getItem("usuarioData")) {
       const data = JSON.parse(localStorage.getItem("usuarioData"));
       form.style.display = "none";
-      reconectarDiv.style.display = "none";
+      guidAccess.style.display = "none";
       estadoDiv.style.display = "block";
-      mostrarDatos(data);
-
       checkRegistro(data.guid).then(result => {
-        if (result.aprobado && !data.aprobado) {
-          data.aprobado = true;
-          localStorage.setItem("usuarioData", JSON.stringify(data));
-          estadoUsuario.textContent = "Aprobado";
-        }
+        const fullData = { ...data, aprobado: result.aprobado };
+        localStorage.setItem("usuarioData", JSON.stringify(fullData));
+        mostrarDatos(fullData);
       });
     }
 
@@ -113,7 +113,7 @@
           const fullData = { ...data, guid: json.guid, aprobado: false };
           localStorage.setItem("usuarioData", JSON.stringify(fullData));
           form.style.display = "none";
-          reconectarDiv.style.display = "none";
+          guidAccess.style.display = "none";
           estadoDiv.style.display = "block";
           mostrarDatos(fullData);
         } else {
@@ -126,29 +126,24 @@
       }
     });
 
-    btnRecuperar.addEventListener("click", async () => {
+    btnAcceder.addEventListener("click", async () => {
       const guid = inputGuid.value.trim();
       const result = await checkRegistro(guid);
       if (result.nick) {
-        const data = { guid, nick: result.nick, aprobado: result.aprobado };
+        const data = { guid, nick: result.nick, pais: "", servidores: "", prefJuego: "", motivo: "", aprobado: result.aprobado };
         localStorage.setItem("usuarioData", JSON.stringify(data));
         form.style.display = "none";
-        reconectarDiv.style.display = "none";
+        guidAccess.style.display = "none";
         estadoDiv.style.display = "block";
         mostrarDatos(data);
       } else {
-        msgInfo.textContent = "GUID no encontrado";
+        msgInfo.textContent = "Token inválido";
         msgInfo.style.color = "orange";
       }
     });
 
     btnConectar.addEventListener("click", async () => {
       const data = JSON.parse(localStorage.getItem("usuarioData"));
-      if (!data.aprobado) {
-        msgInfo.textContent = "Tu registro aún no ha sido aprobado.";
-        msgInfo.style.color = "orange";
-        return;
-      }
       try {
         await fetch("/conectar", {
           method: "POST",
