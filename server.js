@@ -83,7 +83,7 @@ client.on("messageCreate", (msg) => {
     }
 
     if (cmd === "deny") {
-      registro.aprobado = false;
+      registro.aprobado = "rechazado";
       saveRegistros(registros);
       msg.reply(`❌ El registro de ${registro.nick} fue rechazado.`);
     }
@@ -126,7 +126,7 @@ app.get("/check/:codigo", (req, res) => {
 app.post("/conectar", async (req, res) => {
   const { codigo } = req.body;
   const registro = registros[codigo];
-  if (!registro || !registro.aprobado) return res.status(403).json({ ok: false });
+  if (!registro || registro.aprobado !== true) return res.status(403).json({ ok: false });
 
   try {
     const canal = await client.channels.fetch(CANAL_CONEXIONES);
