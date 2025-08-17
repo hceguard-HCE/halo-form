@@ -1,41 +1,35 @@
-import { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } from "discord.js";
-import fetch from "node-fetch";
+import { Client, GatewayIntentBits, REST, Routes } from "discord.js";
+import express from "express";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const BACKEND_KEY = process.env.ADMIN_KEY; 
-const BACKEND_URL = "https://tu-proyecto.onrender.com/aprobar"; 
+const CHANNEL_ID = process.env.CHANNEL_ID; // canal privado de aprobaciones
+const PORT = process.env.PORT || 3001;
 
-client.once(Events.ClientReady, () => console.log(`Bot listo!`));
+const app = express();
 
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isButton()) return;
+// Endpoint que el frontend consulta
+app.get("/check/:deviceID", async (req, res) => {
+  const deviceID = req.params.deviceID;
+  const channel = await client.channels.fetch(CHANNEL_ID);
+  const messages = await channel.messages.fetch({ limit: 100 });
 
-  const deviceID = interaction.customId.split("_")[1];
-
-  try {
-    const res = await fetch(BACKEND_URL, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ deviceID, key: BACKEND_KEY })
-    });
-    const json = await res.json();
-    if(json.ok){
-      await interaction.reply({ content:`Usuario aprobado! DeviceID: ${deviceID}`, ephemeral:true });
-      const btn = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(interaction.customId)
-          .setLabel("Aprobado ✅")
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(true)
-      );
-      await interaction.message.edit({ components: [btn] });
+  let aprobado = false;
+  messages.forEach(msg => {
+    if(msg.content.startsWith(deviceID + ":")) {
+      const valor = msg.content.split(":")[1].trim();
+      if(valor.toLowerCase() === "true") aprobado = true;
     }
-  } catch(err){
-    console.error(err);
-    await interaction.reply({ content:"Error al aprobar usuario.", ephemeral:true });
-  }
+  });
+
+  res.json({ aprobado });
+});
+
+app.listen(PORT, () => console.log(`Bot API corriendo en puerto ${PORT}`));
+
+client.once("ready", () => {
+  console.log(`Bot listo! Logged in as ${client.user.tag}`);
 });
 
 client.login(DISCORD_TOKEN);
