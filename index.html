@@ -67,6 +67,30 @@
   </div>
 
   <script>
+
+  // Botón Conectar
+  btnConectar.addEventListener("click", async () => {
+    const data = JSON.parse(localStorage.getItem("usuarioData"));
+    try {
+      const res = await fetch("/conectar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nick: data.nick })
+      });
+      const json = await res.json();
+      if (json.ok) {
+        alert(`Conectado! Se notificó a Discord.`);
+      } else {
+        alert("Error al notificar la conexión.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión con el servidor.");
+    }
+  });
+
+
+    
     async function checkAprobado() {
       const userId = document.getElementById("userId").value.trim();
       const resultadoDiv = document.getElementById("resultado");
