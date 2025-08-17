@@ -1,34 +1,100 @@
-<div id="estadoDiv" style="display:none;">
-  <h3>Tu Información</h3>
-  <pre id="infoUsuario"></pre>
-  <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
-  <button id="btnConectar" style="display:none">Conectar</button>
-  <button id="btnDesconectar" style="display:none">Desconectar</button>
-  <p id="mensajeServidor" style="color:#0f0; margin-top:10px; display:none;">✅ Ya puedes ingresar a cualquier servidor de Halo CE</p>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Halo CE</title>
+<style>
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    margin: 0;
+    color: #fff;
+  }
+  #container {
+    background: #2c2c2c;
+    padding: 30px;
+    border-radius: 10px;
+    width: 350px;
+    text-align: center;
+  }
+  input, select, textarea, button {
+    width: 100%;
+    margin: 8px 0;
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    font-size: 14px;
+  }
+  textarea { resize: none; height: 60px; }
+  button { cursor: pointer; background: #4CAF50; color: white; }
+  button:disabled { background: grey; cursor: default; }
+  #estadoDiv { display: none; margin-top: 20px; text-align: left; }
+  #estadoDiv p { margin: 5px 0; white-space: pre-line; }
+  small { font-size: 12px; color: #ccc; display: block; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div id="container">
+  <h2>Registro Halo CE</h2>
+
+  <form id="registroForm">
+    <input type="text" id="nick" placeholder="Nick en Halo CE" required pattern="^[a-zA-Z0-9_]+$" title="Solo letras, números y guion bajo">
+    <input type="text" id="pais" placeholder="País" required>
+    <input type="text" id="servidores" placeholder="¿En qué servidores juegas?" required>
+    <select id="prefJuego" required>
+      <option value="">¿Cómo prefieres jugar Halo CE?</option>
+      <option value="Pro / competitivo">Pro / competitivo</option>
+      <option value="Casual / recreativo">Casual / recreativo</option>
+    </select>
+    <textarea id="motivo" placeholder="Motivo para unirse" required></textarea>
+    <button type="submit">Crear</button>
+    <small>12–48 horas para revisar, salvo recomendación de un administrador.</small>
+  </form>
+
+  <div id="estadoDiv">
+    <h3>Tu Información</h3>
+    <p id="infoUsuario"></p>
+    <p>Estado: <span id="estadoUsuario">Pendiente</span></p>
+    <button id="btnConectar">Conectar</button>
+    <button id="btnDesconectar">Desconectar</button>
+    <p id="msgConexion" style="color: #4CAF50; font-weight: bold;"></p>
+  </div>
 </div>
 
 <script>
 const form = document.getElementById("registroForm");
 const estadoDiv = document.getElementById("estadoDiv");
 const infoUsuario = document.getElementById("infoUsuario");
+const estadoUsuario = document.getElementById("estadoUsuario");
 const btnConectar = document.getElementById("btnConectar");
 const btnDesconectar = document.getElementById("btnDesconectar");
-const mensajeServidor = document.getElementById("mensajeServidor");
+const msgConexion = document.getElementById("msgConexion");
 
+// Device ID persistente
 function getDeviceID() {
   if(!localStorage.getItem("deviceID")) {
-    const id = crypto.randomUUID();
-    localStorage.setItem("deviceID", id);
+    localStorage.setItem("deviceID", crypto.randomUUID());
   }
   return localStorage.getItem("deviceID");
 }
 const deviceID = getDeviceID();
 
-function mostrarDatosUsuario(data){
+// Mostrar información si ya hay registro
+if(localStorage.getItem("usuarioData")) {
+  const data = JSON.parse(localStorage.getItem("usuarioData"));
+  form.style.display = "none";
+  estadoDiv.style.display = "block";
   infoUsuario.textContent = 
     `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+  estadoUsuario.textContent = "Activo";
 }
 
+// Enviar formulario al backend
 form.addEventListener("submit", async (e)=>{
   e.preventDefault();
   const data = {
@@ -42,7 +108,7 @@ form.addEventListener("submit", async (e)=>{
 
   try {
     const res = await fetch("/registro", {
-      method:"POST",
+      method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(data)
     });
@@ -51,63 +117,59 @@ form.addEventListener("submit", async (e)=>{
       localStorage.setItem("usuarioData", JSON.stringify(data));
       form.style.display = "none";
       estadoDiv.style.display = "block";
-      mostrarDatosUsuario(data);
+      infoUsuario.textContent = 
+        `Nick: ${data.nick}\nPaís: ${data.pais}\nServidores: ${data.servidores}\nPreferencia: ${data.prefJuego}\nMotivo: ${data.motivo}`;
+      estadoUsuario.textContent = "Pendiente";
+    } else {
+      msgConexion.textContent = "Error al enviar el registro.";
     }
   } catch(err){
     console.error(err);
+    msgConexion.textContent = "Error de conexión con el servidor.";
   }
 });
-
-// Revisar aprobación cada 10s
-async function checkEstado(){
-  const data = JSON.parse(localStorage.getItem("usuarioData"));
-  if(!data) return;
-
-  try {
-    const res = await fetch(`/check/${deviceID}`);
-    const json = await res.json();
-    if(json.aprobado){
-      document.getElementById("estadoUsuario").textContent = "Activo";
-      btnConectar.style.display = "inline-block";
-      mensajeServidor.style.display = "block";
-    } else {
-      document.getElementById("estadoUsuario").textContent = "Pendiente";
-      btnConectar.style.display = "none";
-      mensajeServidor.style.display = "none";
-    }
-  } catch(err){
-    console.error(err);
-  }
-}
-
-setInterval(checkEstado, 10000);
-checkEstado();
 
 // Conectar
 btnConectar.addEventListener("click", async ()=>{
   const data = JSON.parse(localStorage.getItem("usuarioData"));
   try {
-    await fetch("/conectar", {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ nick: data.nick, prefJuego: data.prefJuego })
+    const res = await fetch("/conectar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
     });
-    btnConectar.style.display = "none";
-    btnDesconectar.style.display = "inline-block";
-  } catch(err){ console.error(err); }
+    const json = await res.json();
+    if(json.ok){
+      estadoUsuario.textContent = "Activo";
+      msgConexion.textContent = "✅ Ya puedes ingresar a cualquier servidor de Halo CE.";
+      btnConectar.style.display = "none";
+    }
+  } catch(err){
+    console.error(err);
+    msgConexion.textContent = "Error notificando conexión.";
+  }
 });
 
 // Desconectar
 btnDesconectar.addEventListener("click", async ()=>{
   const data = JSON.parse(localStorage.getItem("usuarioData"));
   try {
-    await fetch("/desconectar", {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ nick: data.nick })
+    const res = await fetch("/desconectar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
     });
-    btnDesconectar.style.display = "none";
-    btnConectar.style.display = "inline-block";
-  } catch(err){ console.error(err); }
+    const json = await res.json();
+    if(json.ok){
+      estadoUsuario.textContent = "Pendiente";
+      msgConexion.textContent = "⚠️ Te has desconectado.";
+      btnConectar.style.display = "inline-block";
+    }
+  } catch(err){
+    console.error(err);
+    msgConexion.textContent = "Error notificando desconexión.";
+  }
 });
 </script>
+</body>
+</html>
