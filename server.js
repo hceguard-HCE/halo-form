@@ -36,13 +36,12 @@ app.get("/check/:id", (req, res) => {
 
 // Endpoint para notificar conexión
 app.post("/conectar", express.json(), async (req, res) => {
-  const { nick } = req.body;
+  const { nick, prefJuego } = req.body; // <-- recibir prefJuego también
   try {
     const canal = await client.channels.fetch(process.env.CANAL_CONEXIONES);
     if (canal) {
-      const { nick, prefJuego } = data;
-const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego; 
-canal.send(`**${nick}** (${pref}) se ha conectado.`);
+      const pref = prefJuego.includes("Pro") ? "Pro" : prefJuego;
+      canal.send(`**${nick}** (${pref}) se ha conectado.`);
     }
     res.json({ ok: true });
   } catch (err) {
@@ -102,6 +101,7 @@ client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Start server
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
 
 
 
