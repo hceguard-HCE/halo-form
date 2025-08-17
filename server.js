@@ -25,7 +25,7 @@ const CANAL_REGISTROS = process.env.CANAL_REGISTROS;
 const CANAL_APROBACIONES = process.env.CANAL_APROVACIONES;
 const CANAL_CONEXIONES = process.env.CANAL_CONEXIONES;
 
-// Archivo para persistencia
+// Archivo para persistencia opcional
 const FILE = path.join(process.cwd(), "disk", "registros.json");
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
@@ -48,14 +48,16 @@ function saveRegistros(data) {
 // En memoria
 let registros = loadRegistros();
 
-// Endpoint para recibir registros
+// Endpoint para recibir registros desde el frontend
 app.post("/registro", async (req, res) => {
   const { nick, pais, servidores, prefJuego, motivo, deviceID } = req.body;
   if (!deviceID) return res.status(400).json({ ok: false, error: "No hay deviceID" });
 
+  // Guardar registro inicial
   registros[deviceID] = { nick, pais, servidores, prefJuego, motivo, aprobado: false };
   saveRegistros(registros);
 
+  // Enviar al canal de registros
   try {
     const canal = await client.channels.fetch(CANAL_REGISTROS);
     if (canal) {
@@ -81,7 +83,7 @@ app.get("/check/:id", (req, res) => {
   res.json({ aprobado });
 });
 
-// Conectar / Desconectar
+// Endpoint para notificar conexión
 app.post("/conectar", async (req, res) => {
   const { nick, prefJuego } = req.body;
   try {
@@ -97,6 +99,7 @@ app.post("/conectar", async (req, res) => {
   }
 });
 
+// Endpoint para notificar desconexión
 app.post("/desconectar", async (req, res) => {
   const { nick } = req.body;
   try {
@@ -109,7 +112,7 @@ app.post("/desconectar", async (req, res) => {
   }
 });
 
-// Canal de aprobaciones
+// Bot escucha el canal de aprobaciones
 client.on("messageCreate", (msg) => {
   if (msg.channel.id !== CANAL_APROBACIONES) return;
 
